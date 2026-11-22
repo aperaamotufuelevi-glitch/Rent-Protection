@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rent Payment Protection & Monthly Financial Reminder System</title>
+<style>
+:root{--bg:#0f172a;--panel:#1e293b;--panel2:#273449;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;--blue:#3b82f6;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--purple:#a855f7;--gray:#64748b}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:16px}
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:12px 16px;position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:18px}
+header .sub{color:var(--muted);font-size:13px}
+nav{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+nav button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 14px;font-size:15px;cursor:pointer}
+nav button.active{background:var(--blue);border-color:var(--blue)}
+main{padding:16px;max-width:1150px;margin:0 auto}
+.tab{display:none}.tab.active{display:block}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card h3{margin:0 0 6px;font-size:13px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.big{font-size:28px;font-weight:700}
+.muted{color:var(--muted);font-size:13px}
+.alert{border-radius:10px;padding:12px 14px;margin-bottom:10px;font-weight:600;border:1px solid}
+.alert.red{background:#450a0a;border-color:var(--red)}
+.alert.yellow{background:#422006;border-color:var(--yellow)}
+.alert.blue{background:#172554;border-color:var(--blue)}
+.alert.green{background:#052e16;border-color:var(--green)}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:700}
+.b-scheduled{background:#1e3a8a;color:#bfdbfe}
+.b-due{background:#713f12;color:#fde68a}
+.b-pending{background:#581c87;color:#e9d5ff}
+.b-completed{background:#14532d;color:#bbf7d0}
+.b-overdue{background:#7f1d1d;color:#fecaca}
+.b-nottracked{background:#334155;color:#cbd5e1}
+.cal{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.month{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.month.current{border:2px solid var(--blue)}
+.month h4{margin:0 0 8px;display:flex;justify-content:space-between;align-items:center;font-size:17px}
+.row{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.row:last-of-type{border-bottom:0}
+.row span:first-child{color:var(--muted)}
+.amt{font-weight:700}
+button.btn{background:var(--blue);color:#fff;border:0;border-radius:8px;padding:10px 14px;font-size:15px;cursor:pointer;font-weight:600}
+button.btn.gray{background:var(--panel2);border:1px solid var(--line)}
+button.btn.green{background:#16a34a}
+button.btn.red{background:#dc2626}
+button.btn.small{padding:7px 10px;font-size:14px}
+.month button{width:100%;margin-top:8px}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+input,select,textarea{width:100%;background:#0b1222;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:15px}
+textarea{min-height:70px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:600}
+.flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:flex-start;justify-content:center;z-index:20;overflow:auto;padding:20px}
+.modal.open{display:flex}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:100%;max-width:520px}
+.check{display:flex;gap:10px;align-items:flex-start;margin:12px 0;font-size:15px;color:var(--text)}
+.check input{width:22px;height:22px;flex:none;margin-top:1px}
+.rule{background:var(--panel2);border-left:4px solid var(--yellow);padding:10px 12px;border-radius:8px;margin:8px 0;font-size:14px}
+h2{font-size:18px;margin:4px 0 12px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:10px 18px;border-radius:10px;font-weight:600;display:none;z-index:30}
+#printArea{display:none}
+@media print{
+  body{background:#fff;color:#000}
+  header,main,.modal,.toast{display:none!important}
+  #printArea{display:block;color:#000;font-family:Georgia,serif;padding:10px}
+  #printArea h1{font-size:20px;margin:0 0 4px}
+  #printArea table{font-size:12px}
+  #printArea th,#printArea td{border:1px solid #999;color:#000;padding:5px}
+  #printArea th{background:#eee}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>🏠 Rent Payment Protection & Monthly Financial Reminder System</h1>
+  <div class="sub" id="hdrSub">Seattle Housing Authority (SHA) rent account</div>
+  <nav>
+    <button data-tab="dash" class="active">Dashboard</button>
+    <button data-tab="cal">12-Month Calendar</button>
+    <button data-tab="hist">Payment History</button>
+    <button data-tab="rem">Reminders</button>
+    <button data-tab="set">Settings</button>
+  </nav>
+</header>
+
+<main>
+<!-- DASHBOARD -->
+<section id="dash" class="tab active">
+  <div id="alerts"></div>
+  <div class="grid">
+    <div class="card"><h3>This Month's Rent</h3><div class="big" id="dRent">—</div><div class="muted" id="dRentMonth"></div></div>
+    <div class="card"><h3>Payment Status</h3><div id="dStatus" style="margin:6px 0"></div><div class="muted" id="dStatusNote"></div></div>
+    <div class="card"><h3>Next Rent Due Date</h3><div class="big" id="dNext" style="font-size:22px">—</div><div class="muted" id="dNextAmt"></div></div>
+    <div class="card"><h3>Monthly Income Date</h3><div class="big" id="dIncome" style="font-size:22px">—</div><div class="muted">Income arrives once per month — same day rent is due</div></div>
+    <div class="card"><h3>🔒 Protected Rent Money</h3><div class="big" id="dProtect">—</div><div class="muted" id="dProtectNote"></div></div>
+    <div class="card"><h3>Outstanding Balance (SHA-verified)</h3><div class="big" id="dBal" style="font-size:22px">—</div><div class="muted" id="dBalNote"></div></div>
+  </div>
+  <div class="grid" style="margin-top:12px">
+    <div class="card"><h3>Upcoming Reminders</h3><div id="dUpcoming"></div></div>
+    <div class="card"><h3>Recent Payment History</h3><div id="dHist"></div></div>
+  </div>
+  <div class="flex" style="margin-top:12px">
+    <button class="btn" id="dRecordBtn">Record / Update This Month's Payment</button>
+  </div>
+</section>
+
+<!-- CALENDAR -->
+<section id="cal" class="tab">
+  <div class="flex" style="justify-content:space-between;margin-bottom:12px">
+    <h2 style="margin:0">12-Month Rent Calendar</h2>
+    <div class="flex">
+      <button class="btn gray small" id="calPrev">◀ Earlier</button>
+      <button class="btn gray small" id="calNow">This Month</button>
+      <button class="btn gray small" id="calNext">Later ▶</button>
+    </div>
+  </div>
+  <div class="cal" id="calGrid"></div>
+</section>
+
+<!-- HISTORY -->
+<section id="hist" class="tab">
+  <div class="flex" style="justify-content:space-between;margin-bottom:12px">
+    <h2 style="margin:0">Monthly Payment History</h2>
+    <button class="btn" id="printBtn">🖨 Print / Save as PDF (Portable Document Format)</button>
+  </div>
+  <div class="card" style="overflow:auto"><table id="histTable"></table></div>
+</section>
+
+<!-- REMINDERS -->
+<section id="rem" class="tab">
+  <h2>Reminders</h2>
+  <div class="card">
+    <h3>Your three monthly reminders</h3>
+    <div class="rule"><b>Reminder 1 — Day before rent is due</b> (last day of each month): Rent is due tomorrow. Prepare for your incoming monthly money.</div>
+    <div class="rule"><b>Reminder 2 — Payday and rent payment</b> (1st of each month): Your monthly income has arrived. Reserve the rent amount right away and submit your SHA rent payment.</div>
+    <div class="rule"><b>Reminder 3 — Payment verification</b> (2nd of each month): Did you pay your rent? Check that SHA received and posted it, and save your confirmation.</div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <h3>Get reminders on your phone (works even when this page is closed)</h3>
+    <p class="muted">Downloads all 36 reminders for the 12 months as one ICS (iCalendar) file. Open the file on your phone and add it to Google Calendar. Each reminder has an alert at the time you set in Settings.</p>
+    <button class="btn" id="icsBtn">📅 Download 12-Month Reminder Calendar (ICS — iCalendar)</button>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <h3>Pop-up notifications (while this page is open)</h3>
+    <p class="muted" id="notifState"></p>
+    <button class="btn gray" id="notifBtn">Allow Notifications</button>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <h3>All reminders — next 12 months</h3>
+    <div style="overflow:auto"><table id="remTable"></table></div>
+  </div>
+</section>
+
+<!-- SETTINGS -->
+<section id="set" class="tab">
+  <h2>Settings</h2>
+  <p class="muted">Everything here saves automatically on this device.</p>
+  <div class="grid">
+    <div class="card">
+      <h3>Account</h3>
+      <label>Tenant full name</label><input id="sName">
+      <label>Landlord / housing authority</label><input id="sLandlord">
+      <label>SHA account / household ID (optional)</label><input id="sAcct">
+      <label>Usual payment method</label>
+      <select id="sMethod"></select>
+    </div>
+    <div class="card">
+      <h3>Income &amp; Due Dates</h3>
+      <label>Monthly income arrives on day</label><select id="sIncomeDay"></select>
+      <label>Rent due on day</label><select id="sDueDay"></select>
+      <label>Monthly income amount (optional — only used to show what's left after rent)</label><input id="sIncomeAmt" type="number" min="0" step="0.01" placeholder="Leave blank if you prefer">
+      <label>Mark rent as overdue when still unpaid after</label><select id="sGrace"></select>
+      <label>Start tracking from month</label><select id="sTrackStart"></select>
+      <div class="muted" style="margin-top:6px">Months before this are shown as "Not tracked" instead of overdue.</div>
+    </div>
+    <div class="card">
+      <h3>Rent Amount Schedule</h3>
+      <div id="rateList"></div>
+      <label>Add a new rent amount — effective month</label><select id="rateMonth"></select>
+      <label>Amount ($)</label><input id="rateAmt" type="number" min="0" step="0.01">
+      <button class="btn small" id="rateAdd" style="margin-top:8px">Add Rent Amount</button>
+      <div class="muted" style="margin-top:6px">Each month uses the newest amount that has started. Old and new amounts never mix.</div>
+    </div>
+    <div class="card">
+      <h3>Reminder Times</h3>
+      <label>Reminder 1 time (day before)</label><select id="sT1"></select>
+      <label>Reminder 2 time (payday)</label><select id="sT2"></select>
+      <label>Reminder 3 time (verification)</label><select id="sT3"></select>
+    </div>
+    <div class="card">
+      <h3>SHA-Verified Balance</h3>
+      <div class="muted">Enter only what SHA shows you (statement, portal, or office). This app never guesses your balance.</div>
+      <label>Balance SHA shows ($)</label><input id="sBal" type="number" step="0.01">
+      <label>Date you checked it</label><input id="sBalDate" type="date">
+      <label>Where you checked</label><select id="sBalSrc"></select>
+    </div>
+    <div class="card">
+      <h3>Backup</h3>
+      <div class="muted">Save a copy of all your data, or restore it on another device.</div>
+      <div class="flex" style="margin-top:10px">
+        <button class="btn small" id="expBtn">Download Backup (JSON — JavaScript Object Notation)</button>
+        <button class="btn gray small" id="impBtn">Restore Backup</button>
+        <input type="file" id="impFile" accept=".json,application/json" style="display:none">
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- PAYMENT MODAL -->
+<div class="modal" id="payModal"><div class="box">
+  <h2 id="pmTitle">Record Payment</h2>
+  <div class="muted" id="pmDue"></div>
+  <label>Amount paid ($)</label><input id="pmAmt" type="number" step="0.01" min="0">
+  <div class="muted" id="pmAmtWarn" style="color:var(--yellow)"></div>
+  <label>Date paid</label><input id="pmDate" type="date">
+  <label>Payment method</label><select id="pmMethod"></select>
+  <div class="check"><input type="checkbox" id="pmSubmitted"><span><b>I submitted this payment to SHA</b></span></div>
+  <label>Confirmation / receipt number</label><input id="pmConf" placeholder="From SHA receipt, portal or money order stub">
+  <div class="check"><input type="checkbox" id="pmVerified"><span><b>I checked and SHA received and posted this payment</b><br><span class="muted">Only tick this after you see it posted on your SHA account.</span></span></div>
+  <label>Date you verified it was posted</label><input id="pmVerDate" type="date">
+  <label>Notes</label><textarea id="pmNotes"></textarea>
+  <div class="muted" id="pmErr" style="color:var(--red);font-weight:600"></div>
+  <div class="flex" style="margin-top:14px;justify-content:space-between">
+    <button class="btn red small" id="pmClear">Clear Record</button>
+    <div class="flex"><button class="btn gray" id="pmCancel">Cancel</button><button class="btn green" id="pmSave">Save</button></div>
+  </div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+<div id="printArea"></div>
+
+<script>
+(function(){
+"use strict";
+const KEY="rentProtection.v1";
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const METHODS=["SHA online payment portal","Money order","Cashier's check","Personal check","In person at SHA office","Automatic payment","Other"];
+const BAL_SRC=["SHA online portal","SHA paper statement","SHA office / phone","Other"];
+
+const DEFAULTS={
+  name:"Aperaamo Tufue Levi", landlord:"Seattle Housing Authority (SHA)", acct:"", method:METHODS[0],
+  incomeDay:1, dueDay:1, incomeAmt:"", grace:0, trackStart:"2026-11",
+  rates:[{from:"2026-03",amt:73},{from:"2027-01",amt:75}],
+  t1:"18:00", t2:"09:00", t3:"10:00",
+  bal:"", balDate:"", balSrc:BAL_SRC[0],
+  payments:{}, fired:{}, calStart:null
+};
+let S;
+try{ S=Object.assign({},DEFAULTS,JSON.parse(localStorage.getItem(KEY)||"{}")); }catch(e){ S=Object.assign({},DEFAULTS); }
+if(!Array.isArray(S.rates)||!S.rates.length) S.rates=DEFAULTS.rates.slice();
+if(!S.payments) S.payments={};
+if(!S.fired) S.fired={};
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){ alert("Could not save on this device: "+e.message); } }
+
+/* ---------- date helpers (local time) ---------- */
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,"0");
+function today(){ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),d.getDate()); }
+function mk(y,m){ return y+"-"+pad(m+1); }              // m = 0..11
+function parseMk(k){ const [y,m]=k.split("-").map(Number); return {y,m:m-1}; }
+function addMonths(k,n){ const {y,m}=parseMk(k); const d=new Date(y,m+n,1); return mk(d.getFullYear(),d.getMonth()); }
+function curMk(){ const t=today(); return mk(t.getFullYear(),t.getMonth()); }
+function daysIn(y,m){ return new Date(y,m+1,0).getDate(); }
+function dayOf(k,day){ const {y,m}=parseMk(k); return new Date(y,m,Math.min(day,daysIn(y,m))); }
+function addDays(d,n){ return new Date(d.getFullYear(),d.getMonth(),d.getDate()+n); }
+function iso(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+function fmtDate(d){ return d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}); }
+function fmtIso(s){ if(!s) return "—"; const [y,m,d]=s.split("-").map(Number); return fmtDate(new Date(y,m-1,d)); }
+function monthName(k){ const {y,m}=parseMk(k); return MONTHS[m]+" "+y; }
+function money(n){ return "$"+Number(n).toFixed(2); }
+function fmtTime(t){ const [h,mi]=t.split(":").map(Number); const ap=h>=12?"PM":"AM"; return ((h%12)||12)+":"+pad(mi)+" "+ap; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* ---------- core rules ---------- */
+function rentFor(k){
+  const r=S.rates.filter(x=>x.from<=k).sort((a,b)=>a.from<b.from?1:-1)[0];
+  return r?Number(r.amt):null;
+}
+function dueDate(k){ return dayOf(k,Number(S.dueDay)); }
+function incomeDate(k){ return dayOf(k,Number(S.incomeDay)); }
+function reminders(k){
+  const due=dueDate(k);
+  return [
+    {n:1,key:k+"-r1",date:addDays(due,-1),time:S.t1,title:"Rent due tomorrow",
+     text:"Your "+money(rentFor(k)||0)+" SHA rent for "+monthName(k)+" is due tomorrow. Get ready — your monthly money arrives tomorrow."},
+    {n:2,key:k+"-r2",date:due,time:S.t2,title:"Payday — pay rent now",
+     text:"Your monthly income has arrived. Set aside "+money(rentFor(k)||0)+" for rent right now and submit your SHA rent payment for "+monthName(k)+"."},
+    {n:3,key:k+"-r3",date:addDays(due,1),time:S.t3,title:"Did you pay rent?",
+     text:"Did you pay your "+monthName(k)+" rent? Check that SHA received and posted it, and save your payment confirmation."}
+  ];
+}
+/* status: nottracked | scheduled | due | pending | completed | overdue */
+function statusOf(k){
+  if(k<S.trackStart) return {code:"nottracked",label:"Not tracked"};
+  const p=S.payments[k]; const t=today(); const due=dueDate(k);
+  if(p&&p.verified) return {code:"completed",label:"Completed"};
+  if(p&&p.submitted){
+    const late=t>addDays(due,1);
+    return {code:"pending",label:"Pending — awaiting SHA confirmation",unconfirmed:late};
+  }
+  if(t<due) return {code:"scheduled",label:"Scheduled"};
+  if(t<=addDays(due,Number(S.grace))) return {code:"due",label:t.getTime()===due.getTime()?"Due today":"Due — not paid yet"};
+  return {code:"overdue",label:"Overdue — not paid"};
+}
+function badge(st){ return '<span class="badge b-'+st.code+'">'+esc(st.label)+'</span>'; }
+function trackedMonthsThrough(k){ const out=[]; let m=S.trackStart; while(m<=k){ out.push(m); m=addMonths(m,1);} return out; }
+
+/* ---------- toast ---------- */
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.style.display="block"; clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.display="none",2200); }
+
+/* ---------- tabs ---------- */
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x===b));
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.id===b.dataset.tab));
+  renderAll();
+});
+
+/* ---------- dashboard ---------- */
+function renderDash(){
+  const k=curMk(), t=today(), st=statusOf(k), rent=rentFor(k);
+  $("hdrSub").textContent=(S.name?S.name+" — ":"")+S.landlord+(S.acct?" — Account "+S.acct:"");
+  $("dRent").textContent=rent==null?"Not set":money(rent);
+  $("dRentMonth").textContent=monthName(k);
+  $("dStatus").innerHTML=badge(st);
+  const p=S.payments[k];
+  $("dStatusNote").textContent=st.code==="completed"?("Confirmation #"+(p.conf||"—")+" • posted "+fmtIso(p.verDate)):
+    st.code==="pending"?("Submitted "+fmtIso(p.date)+" — check your SHA account to confirm it posted"):
+    "Rent is not marked paid until you confirm it.";
+  // next due: this month's if not completed and not past, else next month
+  const nk=(t<=dueDate(k)&&st.code!=="completed")?k:addMonths(k,1);
+  $("dNext").textContent=fmtDate(dueDate(nk));
+  $("dNextAmt").textContent=monthName(nk)+" rent: "+(rentFor(nk)==null?"not set":money(rentFor(nk)));
+  let ik=k; if(t>incomeDate(k)) ik=addMonths(k,1);
+  $("dIncome").textContent=fmtDate(incomeDate(ik));
+  // protected money
+  if(st.code==="completed"){ $("dProtect").textContent="Paid ✓"; $("dProtectNote").textContent="This month's rent is confirmed paid. Next month's "+money(rentFor(addMonths(k,1))||0)+" will be protected on "+fmtDate(incomeDate(addMonths(k,1)))+"."; }
+  else { $("dProtect").textContent=rent==null?"—":money(rent);
+    const inc=Number(S.incomeAmt);
+    $("dProtectNote").textContent="Do not spend this — it is for rent."+(S.incomeAmt!==""&&inc>0&&rent!=null?" Income "+money(inc)+" − rent "+money(rent)+" = "+money(inc-rent)+" left for the rest of the month (no other income expected).":""); }
+  // balance
+  if(S.bal!==""&&S.balDate){ $("dBal").textContent=money(S.bal); $("dBalNote").textContent="As shown by "+S.balSrc+" on "+fmtIso(S.balDate)+"."; }
+  else { $("dBal").textContent="Not verified"; $("dBalNote").textContent="Enter the balance SHA shows you in Settings. This app never guesses it."; }
+  // alerts
+  const al=[];
+  trackedMonthsThrough(k).forEach(m=>{
+    const s=statusOf(m);
+    if(s.code==="overdue") al.push(['red',"⚠ "+monthName(m)+" rent ("+money(rentFor(m)||0)+") is OVERDUE — not recorded as paid. Pay it, or record the payment if you already did."]);
+    if(s.code==="pending"&&s.unconfirmed) al.push(['yellow',"⏳ "+monthName(m)+" rent was submitted but is still UNCONFIRMED. Check your SHA account and save the confirmation."]);
+  });
+  if(st.code==="due") al.unshift(['red',"💵 Rent of "+money(rent||0)+" is due today. Your income has arrived — set aside the rent first and pay SHA now."]);
+  const tomorrow=addDays(t,1);
+  if(tomorrow.getTime()===dueDate(addMonths(k,1)).getTime()&&statusOf(addMonths(k,1)).code!=="completed")
+    al.push(['blue',"📅 Rent of "+money(rentFor(addMonths(k,1))||0)+" is due tomorrow ("+fmtDate(tomorrow)+"). Your monthly money arrives tomorrow — don't plan to spend it."]);
+  if(st.code==="completed") al.push(['green',"✅ "+monthName(k)+" rent is paid and confirmed."]);
+  $("alerts").innerHTML=al.map(a=>'<div class="alert '+a[0]+'">'+esc(a[1])+'</div>').join("");
+  // upcoming reminders
+  const up=upcomingReminders(6);
+  $("dUpcoming").innerHTML=up.length?up.map(r=>'<div class="row"><span>'+fmtDate(r.date)+" "+fmtTime(r.time)+'</span><span>'+esc(r.title)+'</span></div>').join(""):'<div class="muted">None</div>';
+  // history
+  const hist=Object.keys(S.payments).sort().reverse().slice(0,5);
+  $("dHist").innerHTML=hist.length?hist.map(m=>'<div class="row"><span>'+monthName(m)+'</span><span>'+badge(statusOf(m))+'</span></div>').join(""):'<div class="muted">No payments recorded yet.</div>';
+}
+function upcomingReminders(n){
+  const now=new Date(), out=[]; let k=curMk();
+  for(let i=0;i<14&&out.length<n;i++){
+    reminders(addMonths(k,i)).forEach(r=>{ const [h,mi]=r.time.split(":").map(Number); const when=new Date(r.date.getFullYear(),r.date.getMonth(),r.date.getDate(),h,mi); if(when>=now) out.push(Object.assign({when},r)); });
+  }
+  return out.sort((a,b)=>a.when-b.when).slice(0,n);
+}
+
+/* ---------- calendar ---------- */
+function renderCal(){
+  if(!S.calStart) S.calStart=curMk();
+  const cur=curMk(); let h="";
+  for(let i=0;i<12;i++){
+    const k=addMonths(S.calStart,i), st=statusOf(k), r=reminders(k), rent=rentFor(k), p=S.payments[k];
+    h+='<div class="month'+(k===cur?' current':'')+'"><h4>'+monthName(k)+' '+badge(st)+'</h4>'+
+      '<div class="row"><span>💰 Income arrives</span><span>'+fmtDate(incomeDate(k))+'</span></div>'+
+      '<div class="row"><span>🏠 Rent due</span><span>'+fmtDate(dueDate(k))+'</span></div>'+
+      '<div class="row"><span>Rent amount</span><span class="amt">'+(rent==null?"Not set":money(rent))+'</span></div>'+
+      '<div class="row"><span>🔔 Advance reminder</span><span>'+fmtDate(r[0].date)+'</span></div>'+
+      '<div class="row"><span>🔔 Pay-day reminder</span><span>'+fmtDate(r[1].date)+'</span></div>'+
+      '<div class="row"><span>🔔 Confirm reminder</span><span>'+fmtDate(r[2].date)+'</span></div>'+
+      (p?'<div class="row"><span>Paid</span><span>'+(p.amt!==""?money(p.amt):"—")+' on '+fmtIso(p.date)+'</span></div>'+
+         '<div class="row"><span>Confirmation #</span><span>'+esc(p.conf||"—")+'</span></div>':'')+
+      (st.code==="nottracked"?'':'<button class="btn small'+(st.code==="completed"?' gray':'')+'" data-pay="'+k+'">'+(p?"Update Payment":"Record Payment")+'</button>')+
+      '</div>';
+  }
+  $("calGrid").innerHTML=h;
+  $("calGrid").querySelectorAll("[data-pay]").forEach(b=>b.onclick=()=>openPay(b.dataset.pay));
+}
+$("calPrev").onclick=()=>{S.calStart=addMonths(S.calStart||curMk(),-12);save();renderCal();};
+$("calNext").onclick=()=>{S.calStart=addMonths(S.calStart||curMk(),12);save();renderCal();};
+$("calNow").onclick=()=>{S.calStart=curMk();save();renderCal();};
+
+/* ---------- history ---------- */
+function histRows(){
+  const end=addMonths(curMk(),1), keys=new Set(trackedMonthsThrough(curMk()).concat(Object.keys(S.payments)));
+  return [...keys].filter(k=>k<end||S.payments[k]).sort().reverse();
+}
+function renderHist(){
+  const rows=histRows();
+  $("histTable").innerHTML='<tr><th>Month</th><th>Rent Due</th><th>Amount Paid</th><th>Date Paid</th><th>Method</th><th>Confirmation #</th><th>SHA Posted</th><th>Status</th><th></th></tr>'+
+    (rows.length?rows.map(k=>{const p=S.payments[k]||{};return '<tr><td>'+monthName(k)+'</td><td>'+(rentFor(k)==null?"—":money(rentFor(k)))+'</td><td>'+(p.amt!==undefined&&p.amt!==""?money(p.amt):"—")+'</td><td>'+fmtIso(p.date)+'</td><td>'+esc(p.method||"—")+'</td><td>'+esc(p.conf||"—")+'</td><td>'+(p.verified?fmtIso(p.verDate):"Not confirmed")+'</td><td>'+badge(statusOf(k))+'</td><td><button class="btn small gray" data-pay="'+k+'">Open</button></td></tr>';}).join(""):'<tr><td colspan="9" class="muted">No months yet.</td></tr>');
+  $("histTable").querySelectorAll("[data-pay]").forEach(b=>b.onclick=()=>openPay(b.dataset.pay));
+}
+$("printBtn").onclick=()=>{
+  const rows=histRows();
+  $("printArea").innerHTML='<h1>Rent Payment History</h1><div>'+esc(S.name)+' — '+esc(S.landlord)+(S.acct?' — Account '+esc(S.acct):'')+'</div><div>Printed '+fmtDate(today())+'</div>'+
+   (S.bal!==""&&S.balDate?'<p>SHA-verified balance: <b>'+money(S.bal)+'</b> as of '+fmtIso(S.balDate)+' ('+esc(S.balSrc)+')</p>':'<p>SHA balance: not verified</p>')+
+   '<table style="width:100%;border-collapse:collapse;margin-top:10px"><tr><th>Month</th><th>Rent Due</th><th>Amount Paid</th><th>Date Paid</th><th>Method</th><th>Confirmation #</th><th>SHA Posted</th><th>Status</th></tr>'+
+   rows.map(k=>{const p=S.payments[k]||{};return '<tr><td>'+monthName(k)+'</td><td>'+(rentFor(k)==null?"—":money(rentFor(k)))+'</td><td>'+(p.amt!==undefined&&p.amt!==""?money(p.amt):"—")+'</td><td>'+fmtIso(p.date)+'</td><td>'+esc(p.method||"—")+'</td><td>'+esc(p.conf||"—")+'</td><td>'+(p.verified?fmtIso(p.verDate):"Not confirmed")+'</td><td>'+esc(statusOf(k).label)+'</td></tr>';}).join("")+'</table>';
+  window.print();
+};
+
+/* ---------- payment modal ---------- */
+let payK=null;
+function fillSelect(el,opts,val){ el.innerHTML=opts.map(o=>{const v=Array.isArray(o)?o[0]:o,l=Array.isArray(o)?o[1]:o;return '<option value="'+esc(v)+'"'+(String(v)===String(val)?' selected':'')+'>'+esc(l)+'</option>';}).join(""); }
+function openPay(k){
+  payK=k; const p=S.payments[k]||{}, rent=rentFor(k);
+  $("pmTitle").textContent="Rent Payment — "+monthName(k);
+  $("pmDue").textContent="Rent due "+fmtDate(dueDate(k))+": "+(rent==null?"not set":money(rent));
+  $("pmAmt").value=p.amt!==undefined?p.amt:(rent==null?"":rent);
+  $("pmDate").value=p.date||iso(today());
+  fillSelect($("pmMethod"),METHODS,p.method||S.method);
+  $("pmSubmitted").checked=!!p.submitted; $("pmConf").value=p.conf||"";
+  $("pmVerified").checked=!!p.verified; $("pmVerDate").value=p.verDate||"";
+  $("pmNotes").value=p.notes||""; $("pmErr").textContent=""; checkAmt();
+  $("payModal").classList.add("open");
+}
+function checkAmt(){ const r=rentFor(payK), a=$("pmAmt").value; $("pmAmtWarn").textContent=(a!==""&&r!=null&&Number(a)!==r)?"⚠ This is different from the "+money(r)+" rent due for this month. Make sure the full amount was paid.":""; }
+$("pmAmt").oninput=checkAmt;
+$("pmVerified").onchange=()=>{ if($("pmVerified").checked){ $("pmSubmitted").checked=true; if(!$("pmVerDate").value) $("pmVerDate").value=iso(today()); } };
+$("pmCancel").onclick=()=>$("payModal").classList.remove("open");
+$("pmClear").onclick=()=>{ if(confirm("Remove the payment record for "+monthName(payK)+"? The month will go back to not paid.")){ delete S.payments[payK]; save(); $("payModal").classList.remove("open"); renderAll(); toast("Record cleared"); } };
+$("pmSave").onclick=()=>{
+  const sub=$("pmSubmitted").checked, ver=$("pmVerified").checked;
+  if(!sub&&!ver){ $("pmErr").textContent="Tick “I submitted this payment to SHA” to save a payment. Rent is never marked paid without it."; return; }
+  if($("pmAmt").value===""||Number($("pmAmt").value)<=0){ $("pmErr").textContent="Enter the amount you paid."; return; }
+  if(!$("pmDate").value){ $("pmErr").textContent="Enter the date you paid."; return; }
+  if(ver&&!$("pmConf").value.trim()){ $("pmErr").textContent="To mark this Completed, enter the confirmation / receipt number. Your proof must be saved first."; return; }
+  if(ver&&!$("pmVerDate").value){ $("pmErr").textContent="Enter the date you saw the payment posted on your SHA account."; return; }
+  S.payments[payK]={amt:Number($("pmAmt").value),date:$("pmDate").value,method:$("pmMethod").value,submitted:true,
+    conf:$("pmConf").value.trim(),verified:ver,verDate:ver?$("pmVerDate").value:"",notes:$("pmNotes").value.trim(),updated:new Date().toISOString()};
+  save(); $("payModal").classList.remove("open"); renderAll(); toast(ver?"Saved — Completed ✓":"Saved — Pending SHA confirmation");
+};
+$("dRecordBtn").onclick=()=>openPay(curMk());
+
+/* ---------- reminders tab ---------- */
+function renderRem(){
+  const start=curMk(); let rows="";
+  for(let i=0;i<12;i++){ const k=addMonths(start,i); reminders(k).forEach(r=>{ rows+='<tr><td>'+fmtDate(r.date)+'</td><td>'+fmtTime(r.time)+'</td><td>Reminder '+r.n+' — '+esc(r.title)+'</td><td>'+esc(r.text)+'</td></tr>'; }); }
+  $("remTable").innerHTML='<tr><th>Date</th><th>Time</th><th>Reminder</th><th>Message</th></tr>'+rows;
+  const ns=("Notification" in window)?Notification.permission:"unsupported";
+  $("notifState").textContent=ns==="granted"?"✅ Notifications are on. While this page is open, each reminder pops up at its time.":ns==="denied"?"Notifications are blocked in this browser. Use the ICS (iCalendar) calendar download above instead.":ns==="unsupported"?"This browser does not support notifications. Use the ICS (iCalendar) calendar download above.":"Notifications are off. Tap the button to allow them.";
+  $("notifBtn").style.display=ns==="default"?"":"none";
+}
+$("notifBtn").onclick=()=>{ Notification.requestPermission().then(()=>{renderRem();checkNotify();}); };
+function icsEsc(s){ return String(s).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\n/g,"\\n"); }
+$("icsBtn").onclick=()=>{
+  const L=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Rent Protection//EN","CALSCALE:GREGORIAN","METHOD:PUBLISH","X-WR-CALNAME:SHA Rent Reminders"];
+  const stamp=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d+/,"");
+  for(let i=0;i<12;i++){ const k=addMonths(curMk(),i);
+    reminders(k).forEach(r=>{ const [h,mi]=r.time.split(":").map(Number);
+      const s=iso(r.date).replace(/-/g,"")+"T"+pad(h)+pad(mi)+"00";
+      const e=iso(r.date).replace(/-/g,"")+"T"+pad((h+(mi>=45?1:0))%24)+pad((mi+15)%60)+"00";
+      L.push("BEGIN:VEVENT","UID:"+r.key+"@rent-protection","DTSTAMP:"+stamp,"DTSTART:"+s,"DTEND:"+e,
+        "SUMMARY:"+icsEsc("🏠 "+r.title+" — "+money(rentFor(k)||0)),"DESCRIPTION:"+icsEsc(r.text),
+        "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+icsEsc(r.title),"TRIGGER:PT0M","END:VALARM","END:VEVENT"); }); }
+  L.push("END:VCALENDAR");
+  const blob=new Blob([L.join("\r\n")],{type:"text/calendar"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="SHA-Rent-Reminders-12-Months.ics"; a.click();
+  toast("Calendar file downloaded");
+};
+function checkNotify(){
+  const now=new Date(), k=curMk(); let changed=false;
+  [addMonths(k,-1),k,addMonths(k,1)].forEach(m=>reminders(m).forEach(r=>{
+    const [h,mi]=r.time.split(":").map(Number); const when=new Date(r.date.getFullYear(),r.date.getMonth(),r.date.getDate(),h,mi);
+    const sameDay=iso(r.date)===iso(now);
+    if(sameDay&&now>=when&&!S.fired[r.key]){
+      if(r.n===3&&statusOf(m).code==="completed"){ S.fired[r.key]=1; changed=true; return; }
+      if("Notification" in window&&Notification.permission==="granted"){ try{ new Notification("🏠 "+r.title,{body:r.text}); }catch(e){} }
+      S.fired[r.key]=1; changed=true;
+    }
+  }));
+  if(changed) save();
+}
+
+/* ---------- settings ---------- */
+function monthOptions(from,count){ const o=[]; for(let i=0;i<count;i++){ const k=addMonths(from,i); o.push([k,monthName(k)]); } return o; }
+function timeOptions(){ const o=[]; for(let h=5;h<=22;h++) for(const m of [0,30]) o.push([pad(h)+":"+pad(m),fmtTime(pad(h)+":"+pad(m))]); return o; }
+function renderSet(){
+  $("sName").value=S.name; $("sLandlord").value=S.landlord; $("sAcct").value=S.acct;
+  fillSelect($("sMethod"),METHODS,S.method);
+  const days=[]; for(let d=1;d<=28;d++) days.push([d,"Day "+d]);
+  fillSelect($("sIncomeDay"),days,S.incomeDay); fillSelect($("sDueDay"),days,S.dueDay);
+  $("sIncomeAmt").value=S.incomeAmt;
+  fillSelect($("sGrace"),[[0,"the due date (day after it's due)"],[1,"1 day"],[2,"2 days"],[3,"3 days"],[4,"4 days"],[5,"5 days"],[7,"7 days"],[10,"10 days"]],S.grace);
+  fillSelect($("sTrackStart"),monthOptions("2026-01",36),S.trackStart);
+  fillSelect($("rateMonth"),monthOptions("2026-01",48),addMonths(curMk(),1));
+  const T=timeOptions(); fillSelect($("sT1"),T,S.t1); fillSelect($("sT2"),T,S.t2); fillSelect($("sT3"),T,S.t3);
+  $("sBal").value=S.bal; $("sBalDate").value=S.balDate; fillSelect($("sBalSrc"),BAL_SRC,S.balSrc);
+  $("rateList").innerHTML=S.rates.slice().sort((a,b)=>a.from<b.from?-1:1).map((r,i)=>'<div class="row"><span>From '+monthName(r.from)+'</span><span class="amt">'+money(r.amt)+' <button class="btn red small" data-del="'+r.from+'">✕</button></span></div>').join("");
+  $("rateList").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{ if(S.rates.length<=1){alert("Keep at least one rent amount.");return;} if(confirm("Remove the rent amount starting "+monthName(b.dataset.del)+"?")){ S.rates=S.rates.filter(r=>r.from!==b.dataset.del); save(); renderSet(); toast("Removed"); } });
+}
+const bind=[["sName","name"],["sLandlord","landlord"],["sAcct","acct"],["sMethod","method"],["sIncomeDay","incomeDay",Number],["sDueDay","dueDay",Number],["sIncomeAmt","incomeAmt"],["sGrace","grace",Number],["sTrackStart","trackStart"],["sT1","t1"],["sT2","t2"],["sT3","t3"],["sBal","bal"],["sBalDate","balDate"],["sBalSrc","balSrc"]];
+bind.forEach(([id,key,fn])=>{ $(id).addEventListener("change",()=>{ const v=$(id).value; S[key]=fn?fn(v):v; save(); toast("Saved"); }); });
+$("rateAdd").onclick=()=>{
+  const from=$("rateMonth").value, amt=$("rateAmt").value;
+  if(amt===""||Number(amt)<=0){ alert("Enter the rent amount."); return; }
+  const ex=S.rates.find(r=>r.from===from);
+  if(ex){ if(!confirm(monthName(from)+" already has "+money(ex.amt)+". Replace it with "+money(amt)+"?")) return; ex.amt=Number(amt); }
+  else S.rates.push({from,amt:Number(amt)});
+  save(); $("rateAmt").value=""; renderSet(); toast("Rent amount added");
+};
+$("expBtn").onclick=()=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:"application/json"})); a.download="Rent-Protection-Backup-"+iso(today())+".json"; a.click(); };
+$("impBtn").onclick=()=>$("impFile").click();
+$("impFile").onchange=e=>{ const f=e.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ try{ const d=JSON.parse(rd.result); if(!d.rates||!d.payments) throw new Error("Not a backup from this tool"); if(!confirm("Replace the data on this device with this backup?")) return; S=Object.assign({},DEFAULTS,d); save(); renderAll(); toast("Backup restored"); }catch(err){ alert("Could not restore: "+err.message); } }; rd.readAsText(f); e.target.value=""; };
+
+/* ---------- run ---------- */
+function renderAll(){ renderDash(); renderCal(); renderHist(); renderRem(); renderSet(); }
+renderAll(); checkNotify();
+setInterval(()=>{ checkNotify(); if(!document.querySelector(".modal.open")&&document.activeElement.tagName!=="INPUT"&&document.activeElement.tagName!=="SELECT") renderDash(); },60000);
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ renderDash(); checkNotify(); } });
+})();
+</script>
+</body>
+</html>
