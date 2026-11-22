@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="version" content="1.1.0">
 <title>Rent Payment Protection & Monthly Financial Reminder System</title>
 <style>
 :root{--bg:#0f172a;--panel:#1e293b;--panel2:#273449;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;--blue:#3b82f6;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--purple:#a855f7;--gray:#64748b}
@@ -82,6 +83,7 @@ h2{font-size:18px;margin:4px 0 12px}
     <button data-tab="dash" class="active">Dashboard</button>
     <button data-tab="cal">12-Month Calendar</button>
     <button data-tab="hist">Payment History</button>
+    <button data-tab="ledger">SHA Ledger</button>
     <button data-tab="rem">Reminders</button>
     <button data-tab="set">Settings</button>
   </nav>
@@ -128,6 +130,30 @@ h2{font-size:18px;margin:4px 0 12px}
     <button class="btn" id="printBtn">🖨 Print / Save as PDF (Portable Document Format)</button>
   </div>
   <div class="card" style="overflow:auto"><table id="histTable"></table></div>
+</section>
+
+<!-- SHA LEDGER -->
+<section id="ledger" class="tab">
+  <h2>SHA Ledger (copied from your SHA portal)</h2>
+  <div id="ledgerSummary"></div>
+  <div class="card" style="overflow:auto;margin-top:12px"><table id="ledgerTable"></table></div>
+  <div class="grid" style="margin-top:12px">
+    <div class="card">
+      <h3>Add a line from your SHA portal</h3>
+      <label>Date</label><input id="lgDate" type="date">
+      <label>Payments and Charges</label><select id="lgDesc"></select>
+      <label>Charge ($) — use a minus sign for a credit, like -71.00</label><input id="lgCharge" type="number" step="0.01" value="0">
+      <label>Payment ($)</label><input id="lgPay" type="number" step="0.01" value="0">
+      <button class="btn" id="lgAdd" style="margin-top:10px">Add Line</button>
+    </div>
+    <div class="card">
+      <h3>Check against SHA</h3>
+      <div class="muted">Type the newest Balance the SHA portal shows. The ledger here must match it.</div>
+      <label>Balance SHA shows now ($) — minus means credit</label><input id="lgCheck" type="number" step="0.01">
+      <button class="btn gray" id="lgCheckBtn" style="margin-top:10px">Check</button>
+      <div id="lgCheckOut" style="margin-top:10px;font-weight:600"></div>
+    </div>
+  </div>
 </section>
 
 <!-- REMINDERS -->
@@ -200,10 +226,10 @@ h2{font-size:18px;margin:4px 0 12px}
     </div>
     <div class="card">
       <h3>Backup</h3>
-      <div class="muted">Save a copy of all your data, or restore it on another device.</div>
+      <div class="muted">Save a copy of all your data, restore it on another device, or load an SHA ledger file (adds ledger lines only — your other data stays).</div>
       <div class="flex" style="margin-top:10px">
         <button class="btn small" id="expBtn">Download Backup (JSON — JavaScript Object Notation)</button>
-        <button class="btn gray small" id="impBtn">Restore Backup</button>
+        <button class="btn gray small" id="impBtn">Restore Backup / Load SHA Ledger File</button>
         <input type="file" id="impFile" accept=".json,application/json" style="display:none">
       </div>
     </div>
@@ -248,13 +274,15 @@ const DEFAULTS={
   rates:[{from:"2026-03",amt:73},{from:"2027-01",amt:75}],
   t1:"18:00", t2:"09:00", t3:"10:00",
   bal:"", balDate:"", balSrc:BAL_SRC[0],
-  payments:{}, fired:{}, calStart:null
+  payments:{}, fired:{}, calStart:null, ledger:[]
 };
+const LEDGER_TYPES=["Tenant Rent","Payment","Tenant Security Deposit","Credit / Adjustment","Late Fee","Other Charge"];
 let S;
 try{ S=Object.assign({},DEFAULTS,JSON.parse(localStorage.getItem(KEY)||"{}")); }catch(e){ S=Object.assign({},DEFAULTS); }
 if(!Array.isArray(S.rates)||!S.rates.length) S.rates=DEFAULTS.rates.slice();
 if(!S.payments) S.payments={};
 if(!S.fired) S.fired={};
+if(!Array.isArray(S.ledger)) S.ledger=[];
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){ alert("Could not save on this device: "+e.message); } }
 
 /* ---------- date helpers (local time) ---------- */
@@ -281,15 +309,54 @@ function rentFor(k){
   const r=S.rates.filter(x=>x.from<=k).sort((a,b)=>a.from<b.from?1:-1)[0];
   return r?Number(r.amt):null;
 }
+/* ---------- SHA ledger & prepaid credit ---------- */
+function ledgerSorted(){ return S.ledger.map((e,i)=>Object.assign({i},e)).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.i-b.i); }
+function ledgerRows(){ let b=0; return ledgerSorted().map(e=>{ b=Math.round((b+Number(e.charge||0)-Number(e.pay||0))*100)/100; return Object.assign({bal:b},e); }); }
+function ledgerLast(){ const r=ledgerRows(); return r.length?r[r.length-1]:null; }
+function isRent(e){ return e.desc==="Tenant Rent"&&Number(e.charge)>0; }
+function lastRentMonth(){ const r=ledgerRows().filter(isRent); return r.length?r[r.length-1].date.slice(0,7):null; }
+/* What the SHA ledger says about month k (only months SHA has already charged) */
+function ledgerInfo(k){
+  const rows=ledgerRows(); if(!rows.length) return null;
+  const charged=rows.filter(e=>isRent(e)&&e.date.slice(0,7)===k);
+  if(!charged.length) return null;
+  const upto=rows.filter(e=>e.date.slice(0,7)<=k); const endBal=upto[upto.length-1].bal;
+  return {charged:charged.reduce((s,e)=>s+Number(e.charge),0),endBal,owed:Math.max(0,endBal)};
+}
+/* Amount still to pay for month k after credit. confirmed=true when it comes from SHA's ledger. */
+function amountDue(k){
+  const rent=rentFor(k); if(rent==null) return {due:null,confirmed:false,covered:false};
+  const li=ledgerInfo(k);
+  if(li) return {due:Math.min(li.owed,li.charged),confirmed:true,covered:li.owed<=0,sha:true};
+  const last=ledgerLast(), lrm=lastRentMonth();
+  if(!last||!lrm||k<=lrm) return {due:rent,confirmed:false,covered:false};
+  let b=last.bal, m=addMonths(lrm,1);
+  while(m<=k){ const r=rentFor(m)||0; b+=r;
+    const p=S.payments[m]; if(p&&p.submitted&&m<k&&p.date>last.date) b-=Number(p.amt||0);
+    if(m===k) break; m=addMonths(m,1); }
+  const due=Math.round(Math.max(0,Math.min(rent,b))*100)/100;
+  return {due,confirmed:false,covered:due===0,partial:due>0&&due<rent,projected:true};
+}
+function creditCoverThrough(){ let m=curMk(), last=null; for(let i=0;i<36;i++){ const a=amountDue(m); if(a.due===0) last=m; else break; m=addMonths(m,1);} return last; }
+
 function dueDate(k){ return dayOf(k,Number(S.dueDay)); }
 function incomeDate(k){ return dayOf(k,Number(S.incomeDay)); }
 function reminders(k){
-  const due=dueDate(k);
+  const due=dueDate(k), a=amountDue(k), rent=rentFor(k)||0;
+  if(a.covered) return [
+    {n:1,key:k+"-r1",date:addDays(due,-1),time:S.t1,title:"Rent due tomorrow — covered by credit",
+     text:"Your "+money(rent)+" SHA rent for "+monthName(k)+" is due tomorrow. Your SHA prepaid credit is expected to cover it — no payment needed."},
+    {n:2,key:k+"-r2",date:due,time:S.t2,title:"Payday — rent covered by credit",
+     text:"Your monthly income has arrived. "+monthName(k)+" rent ("+money(rent)+") should be paid from your SHA credit. Do not pay twice."},
+    {n:3,key:k+"-r3",date:addDays(due,1),time:S.t3,title:"Check SHA used your credit",
+     text:"Open the SHA portal: check the "+monthName(k)+" rent charge posted and your balance is still zero or a credit. Add the new line to the SHA Ledger tab."}
+  ];
+  const amt=money(a.due==null?rent:a.due), part=a.partial?" ("+money(rent)+" rent minus your remaining credit)":"";
   return [
     {n:1,key:k+"-r1",date:addDays(due,-1),time:S.t1,title:"Rent due tomorrow",
-     text:"Your "+money(rentFor(k)||0)+" SHA rent for "+monthName(k)+" is due tomorrow. Get ready — your monthly money arrives tomorrow."},
+     text:"Your "+amt+part+" SHA rent for "+monthName(k)+" is due tomorrow. Get ready — your monthly money arrives tomorrow."},
     {n:2,key:k+"-r2",date:due,time:S.t2,title:"Payday — pay rent now",
-     text:"Your monthly income has arrived. Set aside "+money(rentFor(k)||0)+" for rent right now and submit your SHA rent payment for "+monthName(k)+"."},
+     text:"Your monthly income has arrived. Set aside "+amt+" for rent right now and submit your SHA rent payment for "+monthName(k)+"."},
     {n:3,key:k+"-r3",date:addDays(due,1),time:S.t3,title:"Did you pay rent?",
      text:"Did you pay your "+monthName(k)+" rent? Check that SHA received and posted it, and save your payment confirmation."}
   ];
@@ -299,6 +366,12 @@ function statusOf(k){
   if(k<S.trackStart) return {code:"nottracked",label:"Not tracked"};
   const p=S.payments[k]; const t=today(); const due=dueDate(k);
   if(p&&p.verified) return {code:"completed",label:"Completed"};
+  const a=amountDue(k);
+  if(a.sha&&a.covered) return {code:"completed",label:"Completed — paid from SHA credit",credit:true};
+  if(a.covered){
+    if(t<=addDays(due,Number(S.grace))) return {code:"scheduled",label:"Scheduled — covered by credit",credit:true};
+    return {code:"pending",label:"Covered by credit — confirm on SHA ledger",credit:true,unconfirmed:true};
+  }
   if(p&&p.submitted){
     const late=t>addDays(due,1);
     return {code:"pending",label:"Pending — awaiting SHA confirmation",unconfirmed:late};
@@ -324,39 +397,50 @@ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
 function renderDash(){
   const k=curMk(), t=today(), st=statusOf(k), rent=rentFor(k);
   $("hdrSub").textContent=(S.name?S.name+" — ":"")+S.landlord+(S.acct?" — Account "+S.acct:"");
+  const ad=amountDue(k);
   $("dRent").textContent=rent==null?"Not set":money(rent);
-  $("dRentMonth").textContent=monthName(k);
+  $("dRentMonth").textContent=monthName(k)+(ad.covered?" — covered by your SHA credit":ad.partial?" — you pay "+money(ad.due)+" after credit":"");
   $("dStatus").innerHTML=badge(st);
   const p=S.payments[k];
-  $("dStatusNote").textContent=st.code==="completed"?("Confirmation #"+(p.conf||"—")+" • posted "+fmtIso(p.verDate)):
+  $("dStatusNote").textContent=st.credit&&st.code==="completed"?"SHA charged this month's rent and your account still shows a credit.":
+    st.credit?"Your SHA credit is expected to cover this — check the SHA portal to confirm.":
+    st.code==="completed"?("Confirmation #"+(p.conf||"—")+" • posted "+fmtIso(p.verDate)):
     st.code==="pending"?("Submitted "+fmtIso(p.date)+" — check your SHA account to confirm it posted"):
     "Rent is not marked paid until you confirm it.";
   // next due: this month's if not completed and not past, else next month
   const nk=(t<=dueDate(k)&&st.code!=="completed")?k:addMonths(k,1);
   $("dNext").textContent=fmtDate(dueDate(nk));
-  $("dNextAmt").textContent=monthName(nk)+" rent: "+(rentFor(nk)==null?"not set":money(rentFor(nk)));
+  const na=amountDue(nk);
+  $("dNextAmt").textContent=monthName(nk)+" rent: "+(rentFor(nk)==null?"not set":money(rentFor(nk)))+(na.covered?" — covered by credit, $0.00 to pay":na.partial?" — you pay "+money(na.due)+" after credit":"");
   let ik=k; if(t>incomeDate(k)) ik=addMonths(k,1);
   $("dIncome").textContent=fmtDate(incomeDate(ik));
   // protected money
-  if(st.code==="completed"){ $("dProtect").textContent="Paid ✓"; $("dProtectNote").textContent="This month's rent is confirmed paid. Next month's "+money(rentFor(addMonths(k,1))||0)+" will be protected on "+fmtDate(incomeDate(addMonths(k,1)))+"."; }
-  else { $("dProtect").textContent=rent==null?"—":money(rent);
+  if(ad.covered){ const nx=amountDue(addMonths(k,1)); $("dProtect").textContent="$0.00 this month";
+    const ct=creditCoverThrough(), after=ct?addMonths(ct,1):null, aa=after?amountDue(after):null;
+    $("dProtectNote").textContent="Rent is covered by your SHA credit"+(ct?" through "+monthName(ct):"")+". "+(aa&&aa.due!=null?"First payment needed: "+money(aa.due)+" for "+monthName(after)+" (due "+fmtDate(dueDate(after))+").":"")+" Do not pay twice."; }
+  else if(st.code==="completed"){ $("dProtect").textContent="Paid ✓"; $("dProtectNote").textContent="This month's rent is confirmed paid. Next month's "+money(rentFor(addMonths(k,1))||0)+" will be protected on "+fmtDate(incomeDate(addMonths(k,1)))+"."; }
+  else { const pay=ad.due==null?rent:ad.due; $("dProtect").textContent=pay==null?"—":money(pay);
     const inc=Number(S.incomeAmt);
-    $("dProtectNote").textContent="Do not spend this — it is for rent."+(S.incomeAmt!==""&&inc>0&&rent!=null?" Income "+money(inc)+" − rent "+money(rent)+" = "+money(inc-rent)+" left for the rest of the month (no other income expected).":""); }
+    $("dProtectNote").textContent="Do not spend this — it is for rent."+(S.incomeAmt!==""&&inc>0&&pay!=null?" Income "+money(inc)+" − rent "+money(pay)+" = "+money(inc-pay)+" left for the rest of the month (no other income expected).":""); }
   // balance
-  if(S.bal!==""&&S.balDate){ $("dBal").textContent=money(S.bal); $("dBalNote").textContent="As shown by "+S.balSrc+" on "+fmtIso(S.balDate)+"."; }
+  if(S.bal!==""&&S.balDate){ const bv=Number(S.bal); $("dBal").textContent=bv<0?"Credit "+money(-bv):bv===0?"$0.00":money(bv)+" owed";
+    $("dBalNote").textContent=(bv<0?"You are ahead — SHA shows a minus balance. ":"")+"As shown by "+S.balSrc+" on "+fmtIso(S.balDate)+"."; }
   else { $("dBal").textContent="Not verified"; $("dBalNote").textContent="Enter the balance SHA shows you in Settings. This app never guesses it."; }
   // alerts
   const al=[];
   trackedMonthsThrough(k).forEach(m=>{
     const s=statusOf(m);
-    if(s.code==="overdue") al.push(['red',"⚠ "+monthName(m)+" rent ("+money(rentFor(m)||0)+") is OVERDUE — not recorded as paid. Pay it, or record the payment if you already did."]);
-    if(s.code==="pending"&&s.unconfirmed) al.push(['yellow',"⏳ "+monthName(m)+" rent was submitted but is still UNCONFIRMED. Check your SHA account and save the confirmation."]);
+    const am=amountDue(m), amt=money(am.due==null?(rentFor(m)||0):am.due);
+    if(s.code==="overdue") al.push(['red',"⚠ "+monthName(m)+" rent ("+amt+(am.sha?" owed per SHA ledger":"")+") is OVERDUE — not recorded as paid. Pay it, or record the payment if you already did."]);
+    if(s.code==="pending"&&s.unconfirmed) al.push(['yellow',s.credit?"⏳ "+monthName(m)+" rent should have come out of your SHA credit. Check the SHA portal and add the new line to the SHA Ledger tab to confirm.":"⏳ "+monthName(m)+" rent was submitted but is still UNCONFIRMED. Check your SHA account and save the confirmation."]);
   });
-  if(st.code==="due") al.unshift(['red',"💵 Rent of "+money(rent||0)+" is due today. Your income has arrived — set aside the rent first and pay SHA now."]);
-  const tomorrow=addDays(t,1);
-  if(tomorrow.getTime()===dueDate(addMonths(k,1)).getTime()&&statusOf(addMonths(k,1)).code!=="completed")
-    al.push(['blue',"📅 Rent of "+money(rentFor(addMonths(k,1))||0)+" is due tomorrow ("+fmtDate(tomorrow)+"). Your monthly money arrives tomorrow — don't plan to spend it."]);
-  if(st.code==="completed") al.push(['green',"✅ "+monthName(k)+" rent is paid and confirmed."]);
+  if(st.code==="due") al.unshift(['red',"💵 Rent of "+money(ad.due==null?(rent||0):ad.due)+" is due today. Your income has arrived — set aside the rent first and pay SHA now."]);
+  const tomorrow=addDays(t,1), tk=addMonths(k,1), ta=amountDue(tk);
+  if(tomorrow.getTime()===dueDate(tk).getTime()&&statusOf(tk).code!=="completed")
+    al.push(['blue',ta.covered?"📅 "+monthName(tk)+" rent is due tomorrow and should be covered by your SHA credit — no payment needed. Check the SHA portal after the 1st.":"📅 Rent of "+money(ta.due==null?(rentFor(tk)||0):ta.due)+" is due tomorrow ("+fmtDate(tomorrow)+"). Your monthly money arrives tomorrow — don't plan to spend it."]);
+  if(st.code==="completed") al.push(['green',st.credit?"✅ "+monthName(k)+" rent is paid from your SHA prepaid credit (shown on the SHA ledger).":"✅ "+monthName(k)+" rent is paid and confirmed."]);
+  const ct=creditCoverThrough();
+  if(ct){ const af=addMonths(ct,1), aa=amountDue(af); al.push(['blue',"💳 Your SHA credit covers rent through "+monthName(ct)+". First month you need to pay: "+monthName(af)+(aa.due!=null?" — "+money(aa.due)+" due "+fmtDate(dueDate(af)):"")+". (Months not yet charged by SHA are an estimate.)"]); }
   $("alerts").innerHTML=al.map(a=>'<div class="alert '+a[0]+'">'+esc(a[1])+'</div>').join("");
   // upcoming reminders
   const up=upcomingReminders(6);
@@ -383,6 +467,7 @@ function renderCal(){
       '<div class="row"><span>💰 Income arrives</span><span>'+fmtDate(incomeDate(k))+'</span></div>'+
       '<div class="row"><span>🏠 Rent due</span><span>'+fmtDate(dueDate(k))+'</span></div>'+
       '<div class="row"><span>Rent amount</span><span class="amt">'+(rent==null?"Not set":money(rent))+'</span></div>'+
+      (function(){ const a=amountDue(k); if(a.due==null) return ''; return '<div class="row"><span>'+(a.sha?'You pay (SHA ledger)':'You pay (after credit)')+'</span><span class="amt">'+money(a.due)+(a.covered?' — credit':'')+'</span></div>'; })()+
       '<div class="row"><span>🔔 Advance reminder</span><span>'+fmtDate(r[0].date)+'</span></div>'+
       '<div class="row"><span>🔔 Pay-day reminder</span><span>'+fmtDate(r[1].date)+'</span></div>'+
       '<div class="row"><span>🔔 Confirm reminder</span><span>'+fmtDate(r[2].date)+'</span></div>'+
@@ -520,10 +605,42 @@ $("rateAdd").onclick=()=>{
 };
 $("expBtn").onclick=()=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:"application/json"})); a.download="Rent-Protection-Backup-"+iso(today())+".json"; a.click(); };
 $("impBtn").onclick=()=>$("impFile").click();
-$("impFile").onchange=e=>{ const f=e.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ try{ const d=JSON.parse(rd.result); if(!d.rates||!d.payments) throw new Error("Not a backup from this tool"); if(!confirm("Replace the data on this device with this backup?")) return; S=Object.assign({},DEFAULTS,d); save(); renderAll(); toast("Backup restored"); }catch(err){ alert("Could not restore: "+err.message); } }; rd.readAsText(f); e.target.value=""; };
+$("impFile").onchange=e=>{ const f=e.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ try{ const d=JSON.parse(rd.result);
+    if(d.type==="sha-ledger-load"){ const lines=(d.ledger||[]).filter(e=>e&&e.date&&e.desc); let added=0;
+      lines.forEach(e=>{ const n={date:e.date,desc:e.desc,charge:Number(e.charge||0),pay:Number(e.pay||0)}; if(!S.ledger.some(x=>x.date===n.date&&x.desc===n.desc&&Number(x.charge)===n.charge&&Number(x.pay)===n.pay)){ S.ledger.push(n); added++; } });
+      const set=d.settings||{}; ["acct","trackStart"].forEach(k=>{ if(set[k]&&(k!=="acct"||!S.acct)) S[k]=set[k]; });
+      const l=ledgerLast(); if(l){ S.bal=l.bal; S.balDate=set.balDate||iso(today()); S.balSrc=BAL_SRC[0]; }
+      const msg=added+" SHA ledger line(s) added. Nothing else was replaced."+(set.checkBalance!=null&&l?(Math.abs(Number(set.checkBalance)-l.bal)<0.005?" Ledger matches SHA's balance.":" ⚠ Ledger does NOT match SHA's balance — check it."):"");
+      save(); renderAll(); alert(msg); return; }
+    if(!d.rates||!d.payments) throw new Error("Not a backup from this tool"); if(!confirm("Replace the data on this device with this backup?")) return; S=Object.assign({},DEFAULTS,d); save(); renderAll(); toast("Backup restored"); }catch(err){ alert("Could not restore: "+err.message); } }; rd.readAsText(f); e.target.value=""; };
 
 /* ---------- run ---------- */
-function renderAll(){ renderDash(); renderCal(); renderHist(); renderRem(); renderSet(); }
+/* ---------- SHA ledger tab ---------- */
+function renderLedger(){
+  const rows=ledgerRows(), last=rows.length?rows[rows.length-1]:null, ct=creditCoverThrough();
+  $("ledgerSummary").innerHTML=last?('<div class="grid"><div class="card"><h3>Ledger balance</h3><div class="big">'+(last.bal<0?"Credit "+money(-last.bal):last.bal===0?"$0.00":money(last.bal)+" owed")+'</div><div class="muted">After the '+fmtIso(last.date)+' line. Minus on SHA = credit (you are ahead).</div></div>'+
+    '<div class="card"><h3>Credit covers rent through</h3><div class="big" style="font-size:22px">'+(ct?monthName(ct):"—")+'</div><div class="muted">'+(ct?(function(){const af=addMonths(ct,1),a=amountDue(af);return "First payment needed: "+monthName(af)+(a.due!=null?" — "+money(a.due):"")+". Months SHA has not charged yet are an estimate.";})():"No credit left for upcoming months.")+'</div></div></div>'):'<div class="alert blue">No SHA ledger lines yet. Add them below, or load a ledger file in Settings → Backup → Restore / Load File.</div>';
+  $("ledgerTable").innerHTML='<tr><th>Date</th><th>Payments and Charges</th><th>Charge</th><th>Payments</th><th>Balance</th><th></th></tr>'+
+    (rows.length?rows.slice().reverse().map(e=>'<tr><td>'+fmtIso(e.date)+'</td><td>'+esc(e.desc)+'</td><td>'+money(e.charge||0).replace("$-","-$")+'</td><td>'+money(e.pay||0)+'</td><td><b>'+money(e.bal).replace("$-","-$")+'</b></td><td><button class="btn red small" data-ldel="'+e.i+'">✕</button></td></tr>').join(""):'<tr><td colspan="6" class="muted">No lines yet.</td></tr>');
+  $("ledgerTable").querySelectorAll("[data-ldel]").forEach(b=>b.onclick=()=>{ const e=S.ledger[Number(b.dataset.ldel)]; if(confirm("Remove the "+fmtIso(e.date)+" "+e.desc+" line?")){ S.ledger.splice(Number(b.dataset.ldel),1); syncBal(); save(); renderAll(); toast("Line removed"); } });
+  fillSelect($("lgDesc"),LEDGER_TYPES,$("lgDesc").value||LEDGER_TYPES[0]);
+  if(!$("lgDate").value) $("lgDate").value=iso(today());
+}
+function syncBal(){ const l=ledgerLast(); if(l){ S.bal=l.bal; S.balDate=iso(today()); S.balSrc=BAL_SRC[0]; } }
+$("lgAdd").onclick=()=>{
+  const date=$("lgDate").value, desc=$("lgDesc").value, charge=Number($("lgCharge").value||0), pay=Number($("lgPay").value||0);
+  if(!date){ alert("Enter the date."); return; }
+  if(charge===0&&pay===0){ alert("Enter a charge or a payment."); return; }
+  if(S.ledger.some(e=>e.date===date&&e.desc===desc&&Number(e.charge)===charge&&Number(e.pay)===pay)){ alert("This line is already in the ledger."); return; }
+  S.ledger.push({date,desc,charge,pay}); syncBal(); save(); $("lgCharge").value=0; $("lgPay").value=0; renderAll(); toast("Line added");
+};
+$("lgCheckBtn").onclick=()=>{ const v=$("lgCheck").value, l=ledgerLast(); if(v===""){alert("Type the balance SHA shows.");return;}
+  if(!l){ $("lgCheckOut").textContent="Add the ledger lines first."; return; }
+  const ok=Math.abs(Number(v)-l.bal)<0.005; $("lgCheckOut").style.color=ok?"var(--green)":"var(--red)";
+  $("lgCheckOut").textContent=ok?"✅ Matches SHA ("+money(l.bal).replace("$-","-$")+"). Balance saved as checked today.":"⚠ Does not match. SHA shows "+money(Number(v)).replace("$-","-$")+" but this ledger adds up to "+money(l.bal).replace("$-","-$")+". A line is missing or different — compare with the SHA portal.";
+  if(ok){ syncBal(); save(); renderDash(); } };
+
+function renderAll(){ renderDash(); renderCal(); renderHist(); renderLedger(); renderRem(); renderSet(); }
 renderAll(); checkNotify();
 setInterval(()=>{ checkNotify(); if(!document.querySelector(".modal.open")&&document.activeElement.tagName!=="INPUT"&&document.activeElement.tagName!=="SELECT") renderDash(); },60000);
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ renderDash(); checkNotify(); } });
