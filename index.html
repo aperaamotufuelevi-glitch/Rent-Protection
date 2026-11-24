@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="version" content="1.4.3">
+<meta name="version" content="1.4.4">
 <title>Rent Payment Protection & Monthly Financial Reminder System</title>
 <style>
 :root{--bg:#0f172a;--panel:#1e293b;--panel2:#273449;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;--blue:#3b82f6;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--purple:#a855f7;--gray:#64748b}
@@ -369,7 +369,7 @@ const BAL_SRC=["SHA online portal","SHA paper statement","SHA office / phone","O
 const DEFAULTS={
   name:"Aperaamo Tufue Levi", landlord:"Seattle Housing Authority (SHA)", acct:"", method:METHODS[0],
   incomeDay:1, dueDay:1, incomeAmt:"", grace:0, trackStart:"2026-11", moveIn:"",
-  rates:[{from:"2026-03",amt:73},{from:"2027-03",amt:75}],
+  rates:[{from:"2026-03",amt:71},{from:"2026-04",amt:73},{from:"2027-03",amt:75}],
   addr:"", leaseDate:"", leaseReason:"", leaseEffective:"", leaseFrom:"", leaseTo:"", unitRent:"", nextReexam:"", mgrName:"", mgrOffice:"", mgrPhone:"",
   t1:"18:00", t2:"09:00", t3:"10:00",
   bal:"", balDate:"", balSrc:BAL_SRC[0],
@@ -390,6 +390,10 @@ if(!Array.isArray(S.payMethods)) S.payMethods=DEFAULTS.payMethods.slice();
 (function(){ const r=(S.rates||[]).slice().sort((a,b)=>a.from<b.from?-1:1);
   if(r.length===2&&r[0].from==="2026-03"&&Number(r[0].amt)===73&&r[1].from==="2027-01"&&Number(r[1].amt)===75&&!S.rateFix120){
     S.rates=[{from:"2026-03",amt:73},{from:"2027-03",amt:75}]; S.rateFix120=true; try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} } })();
+/* 1.4.4 fix: SHA's ledger charged $71 for March 2026; $73 starts April 2026. Only changes a March 2026 entry that is still the old built-in $73 with no April entry (once). */
+(function(){ if(S.rateFix144) return; const r=S.rates||[], mar=r.find(x=>x.from==="2026-03");
+  if(mar&&Number(mar.amt)===73&&!r.some(x=>x.from==="2026-04")){ mar.amt=71; r.push({from:"2026-04",amt:73}); }
+  S.rateFix144=true; try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} })();
 /* 1.4.3: history starts at the move-in month. If no move-in date is saved yet, start at the first SHA ledger month (once). The move-in date itself is never guessed. */
 (function(){ if(S.moveInFix143) return;
   let m=S.moveIn?S.moveIn.slice(0,7):"";
