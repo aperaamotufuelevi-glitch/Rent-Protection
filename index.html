@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="version" content="1.7.0">
+<meta name="version" content="1.7.1">
 <title>Rent Payment Protection & Monthly Financial Reminder System</title>
 <style>
 :root{--bg:#0f172a;--panel:#1e293b;--panel2:#273449;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;--blue:#3b82f6;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--purple:#a855f7;--gray:#64748b}
@@ -794,7 +794,13 @@ function histRows(){
 function renderHist(){
   const rows=histRows();
   $("histTable").innerHTML='<tr><th>Month</th><th>Rent Due</th><th>Amount Paid</th><th>Date Paid</th><th>Method</th><th>Confirmation #</th><th>SHA Posted</th><th>Status</th><th></th></tr>'+
-    (rows.length?rows.map(k=>{const p=S.payments[k]||{};return '<tr><td>'+monthName(k)+'</td><td>'+(rentFor(k)==null?"—":money(rentFor(k)))+'</td><td>'+(p.amt!==undefined&&p.amt!==""?money(p.amt):"—")+'</td><td>'+fmtIso(p.date)+'</td><td>'+esc(p.method||"—")+'</td><td>'+esc(p.conf||"—")+'</td><td>'+(p.verified?fmtIso(p.verDate):"Not confirmed")+'</td><td>'+badge(statusOf(k))+'</td><td><button class="btn small gray" data-pay="'+k+'">Open</button></td></tr>';}).join(""):'<tr><td colspan="9" class="muted">No months yet.</td></tr>');
+    (rows.length?rows.map(k=>{const p=S.payments[k]||{};
+      /* 1.7.1: a month SHA charged and the credit paid (no payment recorded by you) shows the credit as the payment */
+      const mine=p.amt!==undefined&&p.amt!=="", li=ledgerInfo(k), r=li&&!mine?rentRow(k):null, cr=r&&r.credit>0, rev=li&&!mine&&li.reversed&&li.charged===0;
+      const due=li&&!mine?li.charged:rentFor(k), cdate=k+"-01";
+      if(rev) return '<tr><td>'+monthName(k)+'</td><td>$0.00</td><td>$0.00</td><td>'+fmtIso(cdate)+'</td><td>Rent charge reversed by SHA</td><td>SHA ledger</td><td>'+fmtIso(cdate)+'</td><td>'+badge({code:"completed",label:"No rent due"})+'</td><td><button class="btn small gray" data-pay="'+k+'">Open</button></td></tr>';
+      if(cr) return '<tr><td>'+monthName(k)+'</td><td>'+money(due)+'</td><td>'+money(r.credit)+'</td><td>'+fmtIso(cdate)+'</td><td>'+esc(crLong().replace(/^./,c=>c.toUpperCase()))+'</td><td>SHA ledger</td><td>'+fmtIso(cdate)+'</td><td>'+badge(statusOf(k))+'</td><td><button class="btn small gray" data-pay="'+k+'">Open</button></td></tr>';
+      return '<tr><td>'+monthName(k)+'</td><td>'+(rentFor(k)==null?"—":money(rentFor(k)))+'</td><td>'+(mine?money(p.amt):"—")+'</td><td>'+fmtIso(p.date)+'</td><td>'+esc(p.method||"—")+'</td><td>'+esc(p.conf||"—")+'</td><td>'+(p.verified?fmtIso(p.verDate):"Not confirmed")+'</td><td>'+badge(statusOf(k))+'</td><td><button class="btn small gray" data-pay="'+k+'">Open</button></td></tr>';}).join(""):'<tr><td colspan="9" class="muted">No months yet.</td></tr>');
   $("histTable").querySelectorAll("[data-pay]").forEach(b=>b.onclick=()=>openPay(b.dataset.pay));
 }
 function sd(s){ if(!s) return "—"; const [y,m,d]=s.split("-"); return m+"/"+d+"/"+y; }
