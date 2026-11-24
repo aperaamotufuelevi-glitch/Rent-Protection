@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="version" content="1.5.0">
+<meta name="version" content="1.6.0">
 <title>Rent Payment Protection & Monthly Financial Reminder System</title>
 <style>
 :root{--bg:#0f172a;--panel:#1e293b;--panel2:#273449;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;--blue:#3b82f6;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--purple:#a855f7;--gray:#64748b}
@@ -137,7 +137,7 @@ h2{font-size:18px;margin:4px 0 12px}
   <div class="grid" id="rbTop"></div>
   <div class="card" style="margin-top:12px;overflow:auto">
     <h3>Your rent, month by month</h3>
-    <div class="muted" style="margin-bottom:6px">Every month since you moved in. "Paid by SHA credit" is money you already paid ahead. "You must pay" is what you pay SHA that month, on the 1st. Rows marked estimate are months SHA has not charged yet.</div>
+    <div class="muted" style="margin-bottom:6px">Every month since you moved in. "Paid by SHA credit" is money you already paid ahead. "You must pay" is what you pay SHA that month, on the 1st. Rows marked estimate are months SHA has not charged yet. "Send on" is the income day to send that payment so it reaches SHA in time (set in Settings).</div>
     <table id="rbTable"></table>
   </div>
   <div class="grid" style="margin-top:12px">
@@ -265,6 +265,7 @@ h2{font-size:18px;margin:4px 0 12px}
       <h3>Income &amp; Due Dates</h3>
       <label>Monthly income arrives on day</label><select id="sIncomeDay"></select><div class="fhelp">The day of the month your money arrives. Reminder 2 goes off on this day.</div>
       <label>Rent due on day</label><select id="sDueDay"></select><div class="fhelp">The day SHA says rent is due. Used for statuses and the calendar.</div>
+      <label>My payment takes about this long to reach SHA</label><select id="sTravel"></select><div class="fhelp">For a money order by mail, pick about 2 weeks. The tool then tells you to send each month's rent on an earlier income day, so it reaches SHA by the due date.</div>
       <label>Monthly income amount (optional — only used to show what's left after rent)</label><input id="sIncomeAmt" type="number" min="0" step="0.01" placeholder="Leave blank if you prefer"><div class="fhelp">Your total monthly income. Only used to show how much is left after rent and bills. Never shared.</div>
       <label>Mark rent as overdue when still unpaid after</label><select id="sGrace"></select><div class="fhelp">How many days after the due date an unpaid month turns red as Overdue.</div>
       <label>Move-in date</label><input id="sMoveIn" type="date"><div class="fhelp">The day you moved into the apartment (your lease start, or the first line on your SHA ledger). History, the calendar status and printed statements start from this month.</div>
@@ -386,7 +387,7 @@ const BAL_SRC=["SHA online portal","SHA paper statement","SHA office / phone","O
 
 const DEFAULTS={
   name:"Aperaamo Tufue Levi", landlord:"Seattle Housing Authority (SHA)", acct:"", method:METHODS[0],
-  incomeDay:1, dueDay:1, incomeAmt:"", grace:0, trackStart:"2026-11", moveIn:"",
+  incomeDay:1, dueDay:1, incomeAmt:"", grace:0, trackStart:"2026-11", moveIn:"", travelDays:14,
   rates:[{from:"2026-03",amt:71},{from:"2026-04",amt:73},{from:"2027-03",amt:75}],
   addr:"", leaseDate:"", leaseReason:"", leaseEffective:"", leaseFrom:"", leaseTo:"", unitRent:"", nextReexam:"", mgrName:"", mgrOffice:"", mgrPhone:"",
   t1:"18:00", t2:"09:00", t3:"10:00",
@@ -476,7 +477,7 @@ function amountDue(k){
 /* The next month you must actually pay (skips months covered by credit or already completed). */
 function nextPayment(){ const k=curMk(); for(let i=0;i<36;i++){ const m=addMonths(k,i), a=amountDue(m), st=statusOf(m);
     if(st.code==="completed"||st.code==="nottracked") continue; if(a.due==null||a.due>0) return {m,due:a.due==null?rentFor(m):a.due,a}; } return null; }
-function payWhen(m){ return "on "+fmtDate(dueDate(m))+" — the same day your income arrives. The 1st is also your due date, so pay that day; paying after the 1st is late"; }
+function payWhen(m){ if(travel()) return sendWords(m); return "on "+fmtDate(dueDate(m))+" — the same day your income arrives. The 1st is also your due date, so pay that day; paying after the 1st is late"; }
 function creditCoverThrough(){ let m=curMk(), last=null; for(let i=0;i<36;i++){ const a=amountDue(m); if(a.due===0) last=m; else break; m=addMonths(m,1);} return last; }
 
 /* ---------- subscriptions & bills ---------- */
@@ -515,17 +516,34 @@ function allReminders(k){ return reminders(k).concat(subReminders(k)); }
 
 function dueDate(k){ return dayOf(k,Number(S.dueDay)); }
 function incomeDate(k){ return dayOf(k,Number(S.incomeDay)); }
+/* 1.6.0: payments take time to reach SHA (money order by mail). Send on the latest income day that still arrives by the due date. */
+function travel(){ return Number(S.travelDays)||0; }
+function sendInfo(m){ const due=dueDate(m), td=travel();
+  if(!td) return {date:due, inc:m, early:false};
+  const latest=addDays(due,-td);
+  for(let i=0;i<4;i++){ const k=addMonths(m,-i), d=incomeDate(k); if(d<=latest) return {date:d, inc:k, early:k!==m}; }
+  return {date:addDays(due,-td), inc:m, early:true}; }
+function sendWords(m){ const si=sendInfo(m); return travel()?"send it on <b>"+fmtDate(si.date)+"</b>"+(si.inc!==m?" (from your "+esc(MONTHS[parseMk(si.inc).m])+" income)":"")+" so it reaches SHA by "+fmtDate(dueDate(m)):""; }
 function reminders(k){
   const due=dueDate(k), a=amountDue(k), rent=rentFor(k)||0;
   if(a.covered) return [
-    {n:1,key:k+"-r1",date:addDays(due,-1),time:S.t1,title:"You must pay $0.00 tomorrow — covered by credit",
+    {n:1,key:k+"-r1",date:addDays(due,-1),time:S.t1,title:monthName(k)+" rent: $0.00 tomorrow — covered by credit",
      text:"Tomorrow is your income day and your rent due date. For "+monthName(k)+" rent ("+money(rent)+") you must pay $0.00 — your SHA credit covers it. Do not pay."},
-    {n:2,key:k+"-r2",date:due,time:S.t2,title:"Payday — you must pay $0.00 rent",
+    {n:2,key:k+"-r2",date:due,time:S.t2,title:monthName(k)+" rent: $0.00 — covered by credit",
      text:"Your monthly income has arrived. For "+monthName(k)+" rent you must pay $0.00 — your SHA credit covers it. Do not pay twice."},
     {n:3,key:k+"-r3",date:addDays(due,1),time:S.t3,title:"Check SHA used your credit",
      text:"Open the SHA portal: check the "+monthName(k)+" rent charge posted and your balance is still zero or a credit. Add the new line to the SHA Ledger tab."}
   ];
   const amt=money(a.due==null?rent:a.due), part=a.partial?" ("+money(rent)+" rent minus your remaining credit)":"";
+  if(travel()){ const si=sendInfo(k), how=S.method||"your payment";
+    return [
+    {n:1,key:k+"-r1",date:addDays(si.date,-1),time:S.t1,title:"Tomorrow: send "+amt+" for "+monthName(k)+" rent",
+     text:"Tomorrow ("+fmtDate(si.date)+") your income arrives. Send "+amt+part+" for "+monthName(k)+" rent that day ("+how+"). It takes about "+travel()+" days to reach SHA and must arrive by "+fmtDate(due)+"."},
+    {n:2,key:k+"-r2",date:si.date,time:S.t2,title:"Send today: "+amt+" for "+monthName(k)+" rent",
+     text:"Your income arrived today. Send "+amt+part+" to SHA for "+monthName(k)+" rent today ("+how+"), before spending anything else. It must reach SHA by "+fmtDate(due)+"."},
+    {n:3,key:k+"-r3",date:addDays(due,1),time:S.t3,title:"Did SHA receive your "+monthName(k)+" rent?",
+     text:"Check the SHA portal: did SHA receive and post your "+amt+" for "+monthName(k)+" rent? Save your money order stub or receipt number."}
+    ]; }
   return [
     {n:1,key:k+"-r1",date:addDays(due,-1),time:S.t1,title:"Tomorrow you must pay "+amt+" rent",
      text:"Tomorrow ("+fmtDate(due)+") your income arrives and your rent is due the same day. You must pay "+amt+part+" for "+monthName(k)+" rent tomorrow, as soon as your money arrives. Paying after the 1st is late."},
@@ -620,7 +638,11 @@ function renderDash(){
   });
   if(st.code==="due") al.unshift(['red',"💵 You must pay "+money(ad.due==null?(rent||0):ad.due)+" for "+monthName(k)+" rent TODAY. Your income arrived today and today is also your due date — pay SHA now, before spending anything. After today it is late."]);
   const tomorrow=addDays(t,1), tk=addMonths(k,1), ta=amountDue(tk);
-  if(tomorrow.getTime()===dueDate(tk).getTime()&&statusOf(tk).code!=="completed")
+  if(travel()){ const nx=nextPayment(); if(nx&&!(S.payments[nx.m]||{}).submitted){ const si=sendInfo(nx.m), amt=money(nx.due);
+      if(si.date.getTime()===t.getTime()) al.unshift(['red',"📮 Send "+amt+" for "+monthName(nx.m)+" rent TODAY. Your income arrived today, and it takes about "+travel()+" days to reach SHA by "+fmtDate(dueDate(nx.m))+"."]);
+      else if(si.date.getTime()===tomorrow.getTime()) al.push(['blue',"📮 Tomorrow ("+fmtDate(si.date)+") send "+amt+" for "+monthName(nx.m)+" rent, so it reaches SHA by "+fmtDate(dueDate(nx.m))+"."]);
+      else if(si.date<t&&t<=dueDate(nx.m)) al.unshift(['red',"📮 Send "+amt+" for "+monthName(nx.m)+" rent NOW — it had to go out by "+fmtDate(si.date)+" to reach SHA by "+fmtDate(dueDate(nx.m))+"."]); } }
+  if(!travel()&&tomorrow.getTime()===dueDate(tk).getTime()&&statusOf(tk).code!=="completed")
     al.push(['blue',ta.covered?"📅 Tomorrow you must pay $0.00 for "+monthName(tk)+" rent — it is covered by your SHA credit. Do not pay. Check the SHA portal after the 1st.":"📅 Tomorrow ("+fmtDate(tomorrow)+") you must pay "+money(ta.due==null?(rentFor(tk)||0):ta.due)+" for "+monthName(tk)+" rent. Your income arrives tomorrow and tomorrow is also your due date — pay as soon as the money arrives. Don't plan to spend it on anything else."]);
   if(false&&st.code==="completed") al.push(['green',st.credit?"✅ "+monthName(k)+" rent is paid from your SHA prepaid credit (shown on the SHA ledger).":"✅ "+monthName(k)+" rent is paid and confirmed."]);
   if(false&&S.leaseEffective&&S.leaseTo&&S.leaseEffective>iso(t)) al.push(['blue',"📄 SHA lease amendment: your rent changes to "+money(S.leaseTo)+" on "+fmtIso(S.leaseEffective)+"."]);
@@ -678,7 +700,7 @@ function rentRow(m){
   else if(st.code==="due"){ label="💵 Pay "+money(must)+" today"; cls="due"; }
   else if(credit>0&&must>0){ label="💵 You pay "+money(must)+" — credit pays "+money(credit); cls="due"; }
   else { label="💵 You must pay "+money(must); cls="due"; }
-  return {m,rent,shaRent,youPaid,credit,must,label,cls,est:!li&&!p.verified&&!!a.projected,due:dueDate(m)};
+  return {m,rent,shaRent,youPaid,credit,must,label,cls,est:!li&&!p.verified&&!!a.projected,due:dueDate(m),send:(must>0&&!p.submitted)?sendInfo(m).date:null};
 }
 function renderRentBoard(){
   const k=curMk(), t=today(), last=ledgerLast(), ct=creditCoverThrough(), np=nextPayment();
@@ -689,7 +711,12 @@ function renderRentBoard(){
   if(np){ const late=dueDate(np.m)<t, r=rentRow(np.m);
     b1='<div class="card rbox '+(late?'late':'pay')+'"><h3>💵 Next payment</h3><div class="rbig">'+money(np.due)+'</div>'+
       '<div><b>for '+esc(monthName(np.m))+' rent</b></div>'+
-      '<div class="muted" style="color:var(--text);margin-top:4px">'+(late?'<b style="color:var(--red)">PAST DUE since '+fmtDate(dueDate(np.m))+' — pay now</b>':'Pay on <b>'+fmtDate(dueDate(np.m))+'</b> — the day your income arrives.')+'</div>'+
+      '<div class="muted" style="color:var(--text);margin-top:4px">'+(late?'<b style="color:var(--red)">PAST DUE since '+fmtDate(dueDate(np.m))+' — pay now</b>':
+        travel()?(function(){ const si=sendInfo(np.m), sent=(S.payments[np.m]||{}).submitted;
+          if(sent) return 'Sent ✓ — must reach SHA by <b>'+fmtDate(dueDate(np.m))+'</b>.';
+          if(si.date<t) return '<b style="color:var(--red)">Send it now</b> — it had to go out by '+fmtDate(si.date)+' to reach SHA by '+fmtDate(dueDate(np.m))+'.';
+          return 'Send on <b>'+fmtDate(si.date)+'</b>'+(si.inc!==np.m?' (from your '+esc(MONTHS[parseMk(si.inc).m])+' income)':'')+' so it reaches SHA by <b>'+fmtDate(dueDate(np.m))+'</b>.'; })():
+        'Pay on <b>'+fmtDate(dueDate(np.m))+'</b> — the day your income arrives.')+'</div>'+
       (r.credit>0?'<div class="muted" style="margin-top:4px">Rent '+money(rentFor(np.m))+' − '+money(r.credit)+' from your credit = '+money(np.due)+'</div>':'')+'</div>'; }
   else b1='<div class="card rbox credit"><h3>💵 Next payment</h3><div class="rbig">$0.00</div><div class="muted">Nothing to pay in the next 3 years.</div></div>';
   // box 2: credit
@@ -711,14 +738,14 @@ function renderRentBoard(){
   // table
   let end=addMonths(k,3); if(after&&addMonths(after,2)>end) end=addMonths(after,2);
   const rows=[]; let m=S.trackStart; while(m<=end){ rows.push(rentRow(m)); m=addMonths(m,1); }
-  let tc=0,ty=0,tm=0, prevRent=null, h='<tr><th>Month</th><th>Due date</th><th class="num">Rent</th><th class="num">Paid by SHA credit</th><th class="num">Paid by you</th><th class="num">You must pay</th><th>Status</th></tr>';
+  let tc=0,ty=0,tm=0, prevRent=null, h='<tr><th>Month</th><th>Due date</th>'+(travel()?'<th>Send on</th>':'')+'<th class="num">Rent</th><th class="num">Paid by SHA credit</th><th class="num">Paid by you</th><th class="num">You must pay</th><th>Status</th></tr>';
   rows.forEach(r=>{ const chg=prevRent!=null&&r.rent!=null&&r.rent!==prevRent; prevRent=r.rent==null?prevRent:r.rent;
     tc+=r.credit; ty+=r.youPaid; tm+=r.must;
-    h+='<tr'+(r.m===k?' class="cur"':'')+'><td data-l=""><span><b>'+esc(monthName(r.m))+'</b>'+(r.m===k?' <span class="est">this month</span>':'')+'</span></td><td data-l="Due date">'+fmtDate(r.due)+'</td>'+
+    h+='<tr'+(r.m===k?' class="cur"':'')+'><td data-l=""><span><b>'+esc(monthName(r.m))+'</b>'+(r.m===k?' <span class="est">this month</span>':'')+'</span></td><td data-l="Due date">'+fmtDate(r.due)+'</td>'+(travel()?'<td data-l="Send on">'+(r.send?'<b>'+fmtDate(r.send)+'</b>':'—')+'</td>':'')+
       '<td class="num" data-l="Rent"><span>'+(r.shaRent==null?'Not set':money(r.shaRent))+(chg?' <span class="est">new rent</span>':'')+'</span></td>'+
       '<td class="num" data-l="Paid by SHA credit">'+(r.credit?money(r.credit):'—')+'</td><td class="num" data-l="Paid by you">'+(r.youPaid?money(r.youPaid):'—')+'</td>'+
       '<td class="num" data-l="You must pay"><b>'+money(r.must)+'</b></td><td data-l=""><span>'+badge({code:r.cls,label:r.label})+(r.est?'<span class="est">estimate</span>':'')+'</span></td></tr>'; });
-  h+='<tr><td colspan="3" data-l=""><b>Totals</b></td><td class="num" data-l="Paid by SHA credit"><b>'+money(tc)+'</b></td><td class="num" data-l="Paid by you"><b>'+money(ty)+'</b></td><td class="num" data-l="You must pay"><b>'+money(tm)+'</b></td><td></td></tr>';
+  h+='<tr><td colspan="'+(travel()?4:3)+'" data-l=""><b>Totals</b></td><td class="num" data-l="Paid by SHA credit"><b>'+money(tc)+'</b></td><td class="num" data-l="Paid by you"><b>'+money(ty)+'</b></td><td class="num" data-l="You must pay"><b>'+money(tm)+'</b></td><td></td></tr>';
   $("rbTable").innerHTML=h;
 }
 
@@ -911,6 +938,7 @@ function renderSet(){
   fillSelect($("sMethod"),METHODS,S.method);
   const days=[]; for(let d=1;d<=28;d++) days.push([d,"Day "+d]);
   fillSelect($("sIncomeDay"),days,S.incomeDay); fillSelect($("sDueDay"),days,S.dueDay);
+  fillSelect($("sTravel"),[[0,"Same day (SHA portal or in person)"],[3,"About 3 days"],[5,"About 5 days"],[7,"About 1 week"],[10,"About 10 days"],[14,"About 2 weeks"],[21,"About 3 weeks"]],S.travelDays);
   $("sIncomeAmt").value=S.incomeAmt;
   fillSelect($("sGrace"),[[0,"the due date (day after it's due)"],[1,"1 day"],[2,"2 days"],[3,"3 days"],[4,"4 days"],[5,"5 days"],[7,"7 days"],[10,"10 days"]],S.grace);
   $("sMoveIn").value=S.moveIn||"";
@@ -924,7 +952,7 @@ function renderSet(){
   $("rateList").innerHTML=S.rates.slice().sort((a,b)=>a.from<b.from?-1:1).map((r,i)=>'<div class="row"><span>From '+monthName(r.from)+'</span><span class="amt">'+money(r.amt)+' <button class="btn red small" data-del="'+r.from+'">✕</button></span></div>').join("");
   $("rateList").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{ if(S.rates.length<=1){alert("Keep at least one rent amount.");return;} if(confirm("Remove the rent amount starting "+monthName(b.dataset.del)+"?")){ S.rates=S.rates.filter(r=>r.from!==b.dataset.del); save(); renderSet(); toast("Removed"); } });
 }
-const bind=[["sName","name"],["sAddr","addr"],["sLandlord","landlord"],["sAcct","acct"],["sMethod","method"],["sIncomeDay","incomeDay",Number],["sDueDay","dueDay",Number],["sIncomeAmt","incomeAmt"],["sGrace","grace",Number],["sTrackStart","trackStart"],["sT1","t1"],["sT2","t2"],["sT3","t3"],["sBal","bal"],["sBalDate","balDate"],["sBalSrc","balSrc"],["sLeaseDate","leaseDate"],["sLeaseReason","leaseReason"],["sLeaseEff","leaseEffective"],["sLeaseFrom","leaseFrom"],["sLeaseTo","leaseTo"],["sUnitRent","unitRent"],["sNextReexam","nextReexam"],["sMgrName","mgrName"],["sMgrOffice","mgrOffice"],["sMgrPhone","mgrPhone"]];
+const bind=[["sName","name"],["sAddr","addr"],["sLandlord","landlord"],["sAcct","acct"],["sMethod","method"],["sIncomeDay","incomeDay",Number],["sDueDay","dueDay",Number],["sTravel","travelDays",Number],["sIncomeAmt","incomeAmt"],["sGrace","grace",Number],["sTrackStart","trackStart"],["sT1","t1"],["sT2","t2"],["sT3","t3"],["sBal","bal"],["sBalDate","balDate"],["sBalSrc","balSrc"],["sLeaseDate","leaseDate"],["sLeaseReason","leaseReason"],["sLeaseEff","leaseEffective"],["sLeaseFrom","leaseFrom"],["sLeaseTo","leaseTo"],["sUnitRent","unitRent"],["sNextReexam","nextReexam"],["sMgrName","mgrName"],["sMgrOffice","mgrOffice"],["sMgrPhone","mgrPhone"]];
 $("sMoveIn").addEventListener("change",()=>{ const v=$("sMoveIn").value; S.moveIn=v; if(v) S.trackStart=v.slice(0,7); save(); renderAll(); toast("Saved — history starts "+(v?monthName(v.slice(0,7)):"from your tracking month")); });
 $("sPayMethods").addEventListener("change",()=>{ S.payMethods=$("sPayMethods").value.split("\n").map(x=>x.trim()).filter(Boolean); save(); toast("Saved"); });
 bind.forEach(([id,key,fn])=>{ $(id).addEventListener("change",()=>{ const v=$(id).value; S[key]=fn?fn(v):v; save(); toast("Saved"); }); });
