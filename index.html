@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="version" content="1.4.2">
+<meta name="version" content="1.4.3">
 <title>Rent Payment Protection & Monthly Financial Reminder System</title>
 <style>
 :root{--bg:#0f172a;--panel:#1e293b;--panel2:#273449;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;--blue:#3b82f6;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--purple:#a855f7;--gray:#64748b}
@@ -249,6 +249,7 @@ h2{font-size:18px;margin:4px 0 12px}
       <label>Rent due on day</label><select id="sDueDay"></select><div class="fhelp">The day SHA says rent is due. Used for statuses and the calendar.</div>
       <label>Monthly income amount (optional — only used to show what's left after rent)</label><input id="sIncomeAmt" type="number" min="0" step="0.01" placeholder="Leave blank if you prefer"><div class="fhelp">Your total monthly income. Only used to show how much is left after rent and bills. Never shared.</div>
       <label>Mark rent as overdue when still unpaid after</label><select id="sGrace"></select><div class="fhelp">How many days after the due date an unpaid month turns red as Overdue.</div>
+      <label>Move-in date</label><input id="sMoveIn" type="date"><div class="fhelp">The day you moved into the apartment (your lease start, or the first line on your SHA ledger). History, the calendar status and printed statements start from this month.</div>
       <label>Start tracking from month</label><select id="sTrackStart"></select>
       <div class="muted" style="margin-top:6px">Months before this are shown as "Not tracked" instead of overdue.</div>
     </div>
@@ -367,7 +368,7 @@ const BAL_SRC=["SHA online portal","SHA paper statement","SHA office / phone","O
 
 const DEFAULTS={
   name:"Aperaamo Tufue Levi", landlord:"Seattle Housing Authority (SHA)", acct:"", method:METHODS[0],
-  incomeDay:1, dueDay:1, incomeAmt:"", grace:0, trackStart:"2026-11",
+  incomeDay:1, dueDay:1, incomeAmt:"", grace:0, trackStart:"2026-11", moveIn:"",
   rates:[{from:"2026-03",amt:73},{from:"2027-03",amt:75}],
   addr:"", leaseDate:"", leaseReason:"", leaseEffective:"", leaseFrom:"", leaseTo:"", unitRent:"", nextReexam:"", mgrName:"", mgrOffice:"", mgrPhone:"",
   t1:"18:00", t2:"09:00", t3:"10:00",
@@ -389,6 +390,12 @@ if(!Array.isArray(S.payMethods)) S.payMethods=DEFAULTS.payMethods.slice();
 (function(){ const r=(S.rates||[]).slice().sort((a,b)=>a.from<b.from?-1:1);
   if(r.length===2&&r[0].from==="2026-03"&&Number(r[0].amt)===73&&r[1].from==="2027-01"&&Number(r[1].amt)===75&&!S.rateFix120){
     S.rates=[{from:"2026-03",amt:73},{from:"2027-03",amt:75}]; S.rateFix120=true; try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} } })();
+/* 1.4.3: history starts at the move-in month. If no move-in date is saved yet, start at the first SHA ledger month (once). The move-in date itself is never guessed. */
+(function(){ if(S.moveInFix143) return;
+  let m=S.moveIn?S.moveIn.slice(0,7):"";
+  if(!m&&Array.isArray(S.ledger)&&S.ledger.length){ const f=S.ledger.map(e=>String(e.date||"")).filter(Boolean).sort()[0]; if(f) m=f.slice(0,7); }
+  if(m&&(!S.trackStart||S.trackStart>m)) S.trackStart=m;
+  S.moveInFix143=true; try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} })();
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){ alert("Could not save on this device: "+e.message); } }
 
 /* ---------- date helpers (local time) ---------- */
@@ -812,7 +819,8 @@ function renderSet(){
   fillSelect($("sIncomeDay"),days,S.incomeDay); fillSelect($("sDueDay"),days,S.dueDay);
   $("sIncomeAmt").value=S.incomeAmt;
   fillSelect($("sGrace"),[[0,"the due date (day after it's due)"],[1,"1 day"],[2,"2 days"],[3,"3 days"],[4,"4 days"],[5,"5 days"],[7,"7 days"],[10,"10 days"]],S.grace);
-  fillSelect($("sTrackStart"),monthOptions("2026-01",36),S.trackStart);
+  $("sMoveIn").value=S.moveIn||"";
+  { const mi=(S.moveIn||"").slice(0,7), st=[mi,S.trackStart,"2026-01"].filter(Boolean).sort()[0]; let n=0,m=st; const last=[addMonths(curMk(),24),"2028-12"].sort()[1]; while(m<=last){ n++; m=addMonths(m,1); } fillSelect($("sTrackStart"),monthOptions(st,n),S.trackStart); }
   fillSelect($("rateMonth"),monthOptions("2026-01",48),addMonths(curMk(),1));
   const T=timeOptions(); fillSelect($("sT1"),T,S.t1); fillSelect($("sT2"),T,S.t2); fillSelect($("sT3"),T,S.t3);
   fillSelect($("sLeaseReason"),[["","— choose —"],["Reexamination","Reexamination (annual review)"],["Interim Adjustment","Interim Adjustment"],["Change in Family Composition","Change in Family Composition"]],S.leaseReason);
@@ -823,6 +831,7 @@ function renderSet(){
   $("rateList").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{ if(S.rates.length<=1){alert("Keep at least one rent amount.");return;} if(confirm("Remove the rent amount starting "+monthName(b.dataset.del)+"?")){ S.rates=S.rates.filter(r=>r.from!==b.dataset.del); save(); renderSet(); toast("Removed"); } });
 }
 const bind=[["sName","name"],["sAddr","addr"],["sLandlord","landlord"],["sAcct","acct"],["sMethod","method"],["sIncomeDay","incomeDay",Number],["sDueDay","dueDay",Number],["sIncomeAmt","incomeAmt"],["sGrace","grace",Number],["sTrackStart","trackStart"],["sT1","t1"],["sT2","t2"],["sT3","t3"],["sBal","bal"],["sBalDate","balDate"],["sBalSrc","balSrc"],["sLeaseDate","leaseDate"],["sLeaseReason","leaseReason"],["sLeaseEff","leaseEffective"],["sLeaseFrom","leaseFrom"],["sLeaseTo","leaseTo"],["sUnitRent","unitRent"],["sNextReexam","nextReexam"],["sMgrName","mgrName"],["sMgrOffice","mgrOffice"],["sMgrPhone","mgrPhone"]];
+$("sMoveIn").addEventListener("change",()=>{ const v=$("sMoveIn").value; S.moveIn=v; if(v) S.trackStart=v.slice(0,7); save(); renderAll(); toast("Saved — history starts "+(v?monthName(v.slice(0,7)):"from your tracking month")); });
 $("sPayMethods").addEventListener("change",()=>{ S.payMethods=$("sPayMethods").value.split("\n").map(x=>x.trim()).filter(Boolean); save(); toast("Saved"); });
 bind.forEach(([id,key,fn])=>{ $(id).addEventListener("change",()=>{ const v=$(id).value; S[key]=fn?fn(v):v; save(); toast("Saved"); }); });
 $("rateAdd").onclick=()=>{
@@ -840,6 +849,7 @@ $("impFile").onchange=e=>{ const f=e.target.files[0]; if(!f) return; const rd=ne
       lines.forEach(e=>{ const n={date:e.date,desc:e.desc,charge:Number(e.charge||0),pay:Number(e.pay||0)}; if(!S.ledger.some(x=>x.date===n.date&&x.desc===n.desc&&Number(x.charge)===n.charge&&Number(x.pay)===n.pay)){ S.ledger.push(n); added++; } });
       const set=d.settings||{}; ["acct","trackStart"].forEach(k=>{ if(set[k]&&(k!=="acct"||!S.acct)) S[k]=set[k]; });
       if(set.addr&&!S.addr) S.addr=set.addr;
+      if(set.moveIn){ S.moveIn=set.moveIn; const mm=set.moveIn.slice(0,7); if(!S.trackStart||S.trackStart>mm) S.trackStart=mm; }
       let rateMsg="";
       if(d.lease){ ["leaseDate","leaseReason","leaseEffective","leaseFrom","leaseTo","unitRent","nextReexam","mgrName","mgrOffice","mgrPhone"].forEach(k=>{ if(d.lease[k]!=null&&d.lease[k]!=="") S[k]=d.lease[k]; });
         const eff=String(d.lease.leaseEffective||"").slice(0,7), to=Number(d.lease.leaseTo), from=Number(d.lease.leaseFrom);
