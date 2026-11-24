@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="version" content="1.4.1">
+<meta name="version" content="1.4.2">
 <title>Rent Payment Protection & Monthly Financial Reminder System</title>
 <style>
 :root{--bg:#0f172a;--panel:#1e293b;--panel2:#273449;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;--blue:#3b82f6;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--purple:#a855f7;--gray:#64748b}
@@ -58,6 +58,7 @@ th{color:var(--muted);font-weight:600}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:flex-start;justify-content:center;z-index:20;overflow:auto;padding:20px}
 .modal.open{display:flex}
 .modal .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:100%;max-width:520px}
+.fhelp{color:var(--muted);font-size:12px;line-height:1.35;margin-top:3px}
 .check{display:flex;gap:10px;align-items:flex-start;margin:12px 0;font-size:15px;color:var(--text)}
 .check input{width:22px;height:22px;flex:none;margin-top:1px}
 .rule{background:var(--panel2);border-left:4px solid var(--yellow);padding:10px 12px;border-radius:8px;margin:8px 0;font-size:14px}
@@ -186,16 +187,16 @@ h2{font-size:18px;margin:4px 0 12px}
   <div class="grid" style="margin-top:12px">
     <div class="card">
       <h3>Add a line from your SHA portal</h3>
-      <label>Date</label><input id="lgDate" type="date">
-      <label>Payments and Charges</label><select id="lgDesc"></select>
-      <label>Charge ($) — use a minus sign for a credit, like -71.00</label><input id="lgCharge" type="number" step="0.01" value="0">
-      <label>Payment ($)</label><input id="lgPay" type="number" step="0.01" value="0">
+      <label>Date</label><input id="lgDate" type="date"><div class="fhelp">The date on the SHA portal line, exactly as SHA shows it.</div>
+      <label>Payments and Charges</label><select id="lgDesc"></select><div class="fhelp">Pick the type that matches the SHA line: Tenant Rent for a monthly charge, Payment for money you paid, and so on.</div>
+      <label>Charge ($) — use a minus sign for a credit, like -71.00</label><input id="lgCharge" type="number" step="0.01" value="0"><div class="fhelp">Copy the Charge column from the SHA portal. Leave it at 0 if this line is a payment.</div>
+      <label>Payment ($)</label><input id="lgPay" type="number" step="0.01" value="0"><div class="fhelp">Copy the Payment column from the SHA portal. Leave it at 0 if this line is a charge.</div>
       <button class="btn" id="lgAdd" style="margin-top:10px">Add Line</button>
     </div>
     <div class="card">
       <h3>Check against SHA</h3>
       <div class="muted">Type the newest Balance the SHA portal shows. The ledger here must match it.</div>
-      <label>Balance SHA shows now ($) — minus means credit</label><input id="lgCheck" type="number" step="0.01">
+      <label>Balance SHA shows now ($) — minus means credit</label><input id="lgCheck" type="number" step="0.01"><div class="fhelp">Type the Balance shown at the top of your SHA portal, then tap Check to see if this ledger matches.</div>
       <button class="btn gray" id="lgCheckBtn" style="margin-top:10px">Check</button>
       <div id="lgCheckOut" style="margin-top:10px;font-weight:600"></div>
     </div>
@@ -234,20 +235,20 @@ h2{font-size:18px;margin:4px 0 12px}
   <div class="grid">
     <div class="card">
       <h3>Account</h3>
-      <label>Tenant full name</label><input id="sName">
-      <label>Landlord / housing authority</label><input id="sLandlord">
-      <label>SHA account / household ID (optional)</label><input id="sAcct">
-      <label>Home address (shows on printed statements)</label><textarea id="sAddr" style="min-height:56px"></textarea>
+      <label>Tenant full name</label><input id="sName"><div class="fhelp">Your full name as it appears on your SHA lease. Shows at the top and on printed statements.</div>
+      <label>Landlord / housing authority</label><input id="sLandlord"><div class="fhelp">Who you pay rent to, such as Seattle Housing Authority. Shows on printed statements.</div>
+      <label>SHA account / household ID (optional)</label><input id="sAcct"><div class="fhelp">Your tenant code or household ID from an SHA letter or the portal. Printed on statements. Leave blank if you don't know it.</div>
+      <label>Home address (shows on printed statements)</label><textarea id="sAddr" style="min-height:56px"></textarea><div class="fhelp">Your rental address. Press Enter for a new line. Printed under your name on statements.</div>
       <label>Usual payment method</label>
-      <select id="sMethod"></select>
-      <label>My cards &amp; accounts (for subscriptions) — one per line, last 4 digits only</label><textarea id="sPayMethods" style="min-height:80px"></textarea>
+      <select id="sMethod"></select><div class="fhelp">How you normally pay rent. This is picked for you when you record a payment, and you can still change it there.</div>
+      <label>My cards &amp; accounts (for subscriptions) — one per line, last 4 digits only</label><textarea id="sPayMethods" style="min-height:80px"></textarea><div class="fhelp">Type each card or account on its own line, like: Cash App Card ending 1234. Never type the full number. These show in the Paid with list for subscriptions.</div>
     </div>
     <div class="card">
       <h3>Income &amp; Due Dates</h3>
-      <label>Monthly income arrives on day</label><select id="sIncomeDay"></select>
-      <label>Rent due on day</label><select id="sDueDay"></select>
-      <label>Monthly income amount (optional — only used to show what's left after rent)</label><input id="sIncomeAmt" type="number" min="0" step="0.01" placeholder="Leave blank if you prefer">
-      <label>Mark rent as overdue when still unpaid after</label><select id="sGrace"></select>
+      <label>Monthly income arrives on day</label><select id="sIncomeDay"></select><div class="fhelp">The day of the month your money arrives. Reminder 2 goes off on this day.</div>
+      <label>Rent due on day</label><select id="sDueDay"></select><div class="fhelp">The day SHA says rent is due. Used for statuses and the calendar.</div>
+      <label>Monthly income amount (optional — only used to show what's left after rent)</label><input id="sIncomeAmt" type="number" min="0" step="0.01" placeholder="Leave blank if you prefer"><div class="fhelp">Your total monthly income. Only used to show how much is left after rent and bills. Never shared.</div>
+      <label>Mark rent as overdue when still unpaid after</label><select id="sGrace"></select><div class="fhelp">How many days after the due date an unpaid month turns red as Overdue.</div>
       <label>Start tracking from month</label><select id="sTrackStart"></select>
       <div class="muted" style="margin-top:6px">Months before this are shown as "Not tracked" instead of overdue.</div>
     </div>
@@ -255,37 +256,37 @@ h2{font-size:18px;margin:4px 0 12px}
       <h3>Rent Amount Schedule</h3>
       <div class="muted" id="rateNote" style="margin-bottom:6px"></div>
       <div id="rateList"></div>
-      <label>Add a new rent amount — effective month</label><select id="rateMonth"></select>
-      <label>Amount ($)</label><input id="rateAmt" type="number" min="0" step="0.01">
+      <label>Add a new rent amount — effective month</label><select id="rateMonth"></select><div class="fhelp">The first month the new rent amount starts, taken from your SHA letter.</div>
+      <label>Amount ($)</label><input id="rateAmt" type="number" min="0" step="0.01"><div class="fhelp">The new monthly rent you pay starting that month, then tap Add Rent Amount.</div>
       <button class="btn small" id="rateAdd" style="margin-top:8px">Add Rent Amount</button>
       <div class="muted" style="margin-top:6px">Each month uses the newest amount that has started. Old and new amounts never mix.</div>
     </div>
     <div class="card">
       <h3>SHA Lease Amendment</h3>
       <div class="muted">From your latest SHA Public Housing Lease Amendment letter.</div>
-      <label>Letter date</label><input id="sLeaseDate" type="date">
-      <label>Reason for change</label><select id="sLeaseReason"></select>
-      <label>New tenant payment starts</label><input id="sLeaseEff" type="date">
-      <label>Tenant payment (Resident Obligation) — from ($)</label><input id="sLeaseFrom" type="number" step="0.01">
-      <label>Tenant payment (Resident Obligation) — to ($)</label><input id="sLeaseTo" type="number" step="0.01">
-      <label>Unit Rent — market rent of the unit ($)</label><input id="sUnitRent" type="number" step="0.01">
-      <label>Next reexamination effective</label><input id="sNextReexam" type="date">
-      <label>Property manager</label><input id="sMgrName">
-      <label>Property / office</label><input id="sMgrOffice">
-      <label>Office phone</label><input id="sMgrPhone" type="tel">
+      <label>Letter date</label><input id="sLeaseDate" type="date"><div class="fhelp">The date printed at the top of the SHA lease amendment letter.</div>
+      <label>Reason for change</label><select id="sLeaseReason"></select><div class="fhelp">Why SHA changed your rent. The letter says this, usually Reexamination.</div>
+      <label>New tenant payment starts</label><input id="sLeaseEff" type="date"><div class="fhelp">The date the new rent amount starts, from the letter. A notice shows on the Dashboard until then.</div>
+      <label>Tenant payment (Resident Obligation) — from ($)</label><input id="sLeaseFrom" type="number" step="0.01"><div class="fhelp">Your old monthly rent (Resident Obligation) shown on the letter.</div>
+      <label>Tenant payment (Resident Obligation) — to ($)</label><input id="sLeaseTo" type="number" step="0.01"><div class="fhelp">Your new monthly rent (Resident Obligation) shown on the letter.</div>
+      <label>Unit Rent — market rent of the unit ($)</label><input id="sUnitRent" type="number" step="0.01"><div class="fhelp">The full market rent of your unit listed on the letter. This is not what you pay. For your records and statements only.</div>
+      <label>Next reexamination effective</label><input id="sNextReexam" type="date"><div class="fhelp">The date your next annual review takes effect, from the letter. A reminder shows on the Dashboard.</div>
+      <label>Property manager</label><input id="sMgrName"><div class="fhelp">Your property manager's name from the letter. Printed on statements.</div>
+      <label>Property / office</label><input id="sMgrOffice"><div class="fhelp">Your building or SHA office name from the letter. Printed on statements.</div>
+      <label>Office phone</label><input id="sMgrPhone" type="tel"><div class="fhelp">The office phone number from the letter, so you can call about your rent.</div>
     </div>
     <div class="card">
       <h3>Reminder Times</h3>
-      <label>Reminder 1 time (day before)</label><select id="sT1"></select>
-      <label>Reminder 2 time (payday)</label><select id="sT2"></select>
-      <label>Reminder 3 time (verification)</label><select id="sT3"></select>
+      <label>Reminder 1 time (day before)</label><select id="sT1"></select><div class="fhelp">What time Reminder 1 goes off, on the last day of each month.</div>
+      <label>Reminder 2 time (payday)</label><select id="sT2"></select><div class="fhelp">What time Reminder 2 goes off, on your income and rent day (the 1st).</div>
+      <label>Reminder 3 time (verification)</label><select id="sT3"></select><div class="fhelp">What time Reminder 3 goes off, on the 2nd, to check SHA posted your payment.</div>
     </div>
     <div class="card">
       <h3>SHA-Verified Balance</h3>
       <div class="muted">Enter only what SHA shows you (statement, portal, or office). This app never guesses your balance.</div>
-      <label>Balance SHA shows ($)</label><input id="sBal" type="number" step="0.01">
-      <label>Date you checked it</label><input id="sBalDate" type="date">
-      <label>Where you checked</label><select id="sBalSrc"></select>
+      <label>Balance SHA shows ($)</label><input id="sBal" type="number" step="0.01"><div class="fhelp">The balance SHA shows you. A minus sign means a credit (you are ahead). This app never guesses it.</div>
+      <label>Date you checked it</label><input id="sBalDate" type="date"><div class="fhelp">The day you looked at that balance, so you know how current it is.</div>
+      <label>Where you checked</label><select id="sBalSrc"></select><div class="fhelp">Where you saw the balance: the portal, a paper statement, or the office.</div>
     </div>
     <div class="card">
       <h3>Backup</h3>
@@ -304,15 +305,15 @@ h2{font-size:18px;margin:4px 0 12px}
 <div class="modal" id="payModal"><div class="box">
   <h2 id="pmTitle">Record Payment</h2>
   <div class="muted" id="pmDue"></div>
-  <label>Amount paid ($)</label><input id="pmAmt" type="number" step="0.01" min="0">
+  <label>Amount paid ($)</label><input id="pmAmt" type="number" step="0.01" min="0"><div class="fhelp">The exact amount you paid SHA for this month.</div>
   <div class="muted" id="pmAmtWarn" style="color:var(--yellow)"></div>
-  <label>Date paid</label><input id="pmDate" type="date">
-  <label>Payment method</label><select id="pmMethod"></select>
-  <div class="check"><input type="checkbox" id="pmSubmitted"><span><b>I submitted this payment to SHA</b></span></div>
-  <label>Confirmation / receipt number</label><input id="pmConf" placeholder="From SHA receipt, portal or money order stub">
+  <label>Date paid</label><input id="pmDate" type="date"><div class="fhelp">The day you sent or made the payment.</div>
+  <label>Payment method</label><select id="pmMethod"></select><div class="fhelp">How you paid this month.</div>
+  <div class="check"><input type="checkbox" id="pmSubmitted"><span><b>I submitted this payment to SHA</b><br><span class="muted">Tick this once you have sent the payment, even if SHA has not posted it yet.</span></span></div>
+  <label>Confirmation / receipt number</label><input id="pmConf" placeholder="From SHA receipt, portal or money order stub"><div class="fhelp">The confirmation or receipt number SHA gave you. Keep it as proof of payment.</div>
   <div class="check"><input type="checkbox" id="pmVerified"><span><b>I checked and SHA received and posted this payment</b><br><span class="muted">Only tick this after you see it posted on your SHA account.</span></span></div>
-  <label>Date you verified it was posted</label><input id="pmVerDate" type="date">
-  <label>Notes</label><textarea id="pmNotes"></textarea>
+  <label>Date you verified it was posted</label><input id="pmVerDate" type="date"><div class="fhelp">The day you saw the payment posted on your SHA account. Filled with today when you tick the box above.</div>
+  <label>Notes</label><textarea id="pmNotes"></textarea><div class="fhelp">Anything you want to remember about this payment, like who you spoke to. Optional.</div>
   <div class="muted" id="pmErr" style="color:var(--red);font-weight:600"></div>
   <div class="flex" style="margin-top:14px;justify-content:space-between">
     <button class="btn red small" id="pmClear">Clear Record</button>
@@ -322,18 +323,18 @@ h2{font-size:18px;margin:4px 0 12px}
 
 <div class="modal" id="subModal"><div class="box">
   <h2 id="smTitle">Subscription</h2>
-  <label>Name</label><input id="smName" placeholder="e.g. EmailJS">
-  <label>Category</label><select id="smCat"></select>
-  <label>Plan</label><input id="smPlan" placeholder="e.g. Personal Plan / Monthly">
-  <label>How it bills</label><select id="smCycle"></select>
-  <label id="smAmtLbl">Amount each time, with tax ($)</label><input id="smAmt" type="number" step="0.01" min="0">
-  <label>Bills on day of the month</label><select id="smDay"></select>
-  <div id="smMonthWrap"><label>Bills in month (yearly plans)</label><select id="smMonth"></select></div>
-  <label>Paid with</label><select id="smMethod"></select>
-  <label>Automatic payment</label><select id="smAuto"></select>
-  <label>Status</label><select id="smStatus"></select>
-  <label>Track from month</label><select id="smSince"></select>
-  <label>Notes</label><textarea id="smNotes"></textarea>
+  <label>Name</label><input id="smName" placeholder="e.g. EmailJS"><div class="fhelp">The company or service name, like EmailJS or Cloudflare.</div>
+  <label>Category</label><select id="smCat"></select><div class="fhelp">What kind of bill this is. Used to group your bills.</div>
+  <label>Plan</label><input id="smPlan" placeholder="e.g. Personal Plan / Monthly"><div class="fhelp">The plan name from the company's billing page or receipt. Optional.</div>
+  <label>How it bills</label><select id="smCycle"></select><div class="fhelp">Monthly, Yearly, Pay-as-you-go (you top up), or Free. This decides which months it is due.</div>
+  <label id="smAmtLbl">Amount each time, with tax ($)</label><input id="smAmt" type="number" step="0.01" min="0"><div class="fhelp">The full amount charged each time, including tax, from your last receipt.</div>
+  <label>Bills on day of the month</label><select id="smDay"></select><div class="fhelp">The day of the month the company charges you, from your receipt or account page.</div>
+  <div id="smMonthWrap"><label>Bills in month (yearly plans)</label><select id="smMonth"></select><div class="fhelp">For yearly plans only: the month the yearly charge happens.</div></div>
+  <label>Paid with</label><select id="smMethod"></select><div class="fhelp">Which of your cards or accounts pays this bill. Add cards in Settings → Account.</div>
+  <label>Automatic payment</label><select id="smAuto"></select><div class="fhelp">Yes if the company charges your card by itself. No if you have to pay it yourself.</div>
+  <label>Status</label><select id="smStatus"></select><div class="fhelp">Active bills count in your Money Plan. Paused and Cancelled ones do not.</div>
+  <label>Track from month</label><select id="smSince"></select><div class="fhelp">The first month this bill should show in your plan. Earlier months are skipped.</div>
+  <label>Notes</label><textarea id="smNotes"></textarea><div class="fhelp">Anything you want to remember, like the account email or how to cancel. Optional.</div>
   <div class="muted" id="smErr" style="color:var(--red);font-weight:600"></div>
   <div class="flex" style="margin-top:14px;justify-content:space-between">
     <button class="btn red small" id="smDel">Delete</button>
@@ -343,9 +344,9 @@ h2{font-size:18px;margin:4px 0 12px}
 <div class="modal" id="bpModal"><div class="box">
   <h2 id="bpTitle">Bill</h2>
   <div class="muted" id="bpDue"></div>
-  <label>Amount charged ($)</label><input id="bpAmt" type="number" step="0.01" min="0">
-  <label>Date charged</label><input id="bpDate" type="date">
-  <label>Receipt / confirmation number</label><input id="bpConf">
+  <label>Amount charged ($)</label><input id="bpAmt" type="number" step="0.01" min="0"><div class="fhelp">The exact amount that was charged, from the receipt or your card statement.</div>
+  <label>Date charged</label><input id="bpDate" type="date"><div class="fhelp">The day the charge happened.</div>
+  <label>Receipt / confirmation number</label><input id="bpConf"><div class="fhelp">The receipt or invoice number from the company's email or account page. Optional.</div>
   <div class="check"><input type="checkbox" id="bpVer"><span><b>I saw the receipt or the charge on my card/account</b><br><span class="muted">Only tick this when you have proof it was charged.</span></span></div>
   <div class="muted" id="bpErr" style="color:var(--red);font-weight:600"></div>
   <div class="flex" style="margin-top:14px;justify-content:space-between">
