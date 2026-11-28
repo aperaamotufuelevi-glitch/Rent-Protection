@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="version" content="1.8.0">
+<meta name="version" content="1.9.0">
 <title>Rent Payment Protection & Monthly Financial Reminder System</title>
 <style>
 :root{--bg:#0f172a;--panel:#1e293b;--panel2:#273449;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;--blue:#3b82f6;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--purple:#a855f7;--gray:#64748b}
@@ -169,6 +169,20 @@ html.tx-xl button.btn,html.tx-xl nav button{padding:16px 22px!important}
 html.tx-xl input,html.tx-xl select,html.tx-xl textarea{padding:16px!important}
 html.tx-xl input[type=checkbox],html.tx-xl input[type=radio]{width:29px;height:29px}
 }
+
+/* 1.9.0: 12-Month Calendar — one full-screen month card, Back (bottom left) and Next (bottom right) */
+.cal.one{display:block;padding-bottom:110px}
+.month.one{min-height:calc(100vh - 260px);padding:20px 22px;border-width:2px}
+.month.one h4{font-size:26px;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.month.one .row{font-size:19px;padding:11px 0}
+.month.one .btn{font-size:20px;padding:14px 20px;margin-top:16px;width:100%}
+.calbar{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px calc(12px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -4px 14px #0006}
+section#cal:not(.active) .calbar{display:none}
+.calbar .btn{font-size:24px;padding:16px 26px;min-width:140px;border-radius:12px}
+.calbar #calPos{color:var(--muted);font-size:17px;text-align:center}
+@media screen{html.tx-l .month.one h4{font-size:32px!important}html.tx-l .month.one .row{font-size:23px!important}html.tx-l .calbar .btn{font-size:28px!important;padding:18px 28px!important}html.tx-l .calbar #calPos{font-size:20px}
+html.tx-xl .month.one h4{font-size:38px!important}html.tx-xl .month.one .row{font-size:28px!important}html.tx-xl .calbar .btn{font-size:32px!important;padding:20px 30px!important}html.tx-xl .calbar #calPos{font-size:23px}}
+@media print{.calbar{display:none!important}}
 </style>
 </head>
 <body>
@@ -223,12 +237,11 @@ html.tx-xl input[type=checkbox],html.tx-xl input[type=radio]{width:29px;height:2
   <div class="flex" style="justify-content:space-between;margin-bottom:12px">
     <h2 style="margin:0">12-Month Rent Calendar</h2>
     <div class="flex">
-      <button class="btn gray small" id="calPrev">◀ Earlier</button>
       <button class="btn gray small" id="calNow">This Month</button>
-      <button class="btn gray small" id="calNext">Later ▶</button>
     </div>
   </div>
-  <div class="cal" id="calGrid"></div>
+  <div class="cal one" id="calGrid"></div>
+  <div class="calbar"><button class="btn" id="calPrev">◀ Back</button><span id="calPos"></span><button class="btn" id="calNext">Next ▶</button></div>
 </section>
 
 <!-- HISTORY -->
@@ -820,11 +833,11 @@ function renderRentBoard(){
 
 /* ---------- calendar ---------- */
 function renderCal(){
-  if(!S.calStart) S.calStart=curMk();
+  if(!S.calMonth) S.calMonth=curMk();   /* 1.9.0: one month at a time, full screen; Back / Next move one month */
   const cur=curMk(); let h="";
-  for(let i=0;i<12;i++){
-    const k=addMonths(S.calStart,i), st=statusOf(k), r=reminders(k), rent=rentFor(k), p=S.payments[k];
-    h+='<div class="month'+(k===cur?' current':'')+'"><h4>'+monthName(k)+' '+badge(st)+'</h4>'+
+  for(let i=0;i<1;i++){
+    const k=S.calMonth, st=statusOf(k), r=reminders(k), rent=rentFor(k), p=S.payments[k];
+    h+='<div class="month one'+(k===cur?' current':'')+'"><h4>'+monthName(k)+' '+badge(st)+'</h4>'+
       '<div class="row"><span>💰 Income arrives</span><span>'+fmtDate(incomeDate(k))+'</span></div>'+
       '<div class="row"><span>🏠 Rent due</span><span>'+fmtDate(dueDate(k))+'</span></div>'+
       '<div class="row"><span>Rent amount</span><span class="amt">'+(rent==null?"Not set":money(rent))+'</span></div>'+
@@ -841,11 +854,18 @@ function renderCal(){
       '</div>';
   }
   $("calGrid").innerHTML=h;
+  { const d=(function(a,b){const [ay,am]=a.split("-").map(Number),[by,bm]=b.split("-").map(Number);return (ay-by)*12+(am-bm)})(S.calMonth,cur);
+    $("calPos").textContent=d===0?"This month":d>0?d+" month"+(d===1?"":"s")+" ahead":(-d)+" month"+(d===-1?"":"s")+" ago"; }
   $("calGrid").querySelectorAll("[data-pay]").forEach(b=>b.onclick=()=>openPay(b.dataset.pay));
 }
-$("calPrev").onclick=()=>{S.calStart=addMonths(S.calStart||curMk(),-12);save();renderCal();};
-$("calNext").onclick=()=>{S.calStart=addMonths(S.calStart||curMk(),12);save();renderCal();};
-$("calNow").onclick=()=>{S.calStart=curMk();save();renderCal();};
+$("calPrev").onclick=()=>{S.calMonth=addMonths(S.calMonth||curMk(),-1);save();renderCal();window.scrollTo(0,0);};
+$("calNext").onclick=()=>{S.calMonth=addMonths(S.calMonth||curMk(),1);save();renderCal();window.scrollTo(0,0);};
+$("calNow").onclick=()=>{S.calMonth=curMk();save();renderCal();window.scrollTo(0,0);};
+/* swipe left = Next, swipe right = Back */
+(function(){ let x0=null,y0=null; const g=$("calGrid");
+  g.addEventListener("touchstart",e=>{x0=e.touches[0].clientX;y0=e.touches[0].clientY;},{passive:true});
+  g.addEventListener("touchend",e=>{ if(x0==null) return; const dx=e.changedTouches[0].clientX-x0, dy=e.changedTouches[0].clientY-y0; x0=null;
+    if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.5) (dx<0?$("calNext"):$("calPrev")).click(); },{passive:true}); })();
 
 /* ---------- history ---------- */
 function histRows(){
