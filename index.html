@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="version" content="1.7.1">
+<meta name="version" content="1.8.0">
 <title>Rent Payment Protection & Monthly Financial Reminder System</title>
 <style>
 :root{--bg:#0f172a;--panel:#1e293b;--panel2:#273449;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;--blue:#3b82f6;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--purple:#a855f7;--gray:#64748b}
@@ -113,6 +113,62 @@ h2{font-size:18px;margin:4px 0 12px}
 #printArea .ps-notes li{margin:2px 0}
 #printArea .ps-kv{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 16px;font-size:9pt}
 #printArea .ps-kv div span{color:#6b7280}
+
+/* 1.8.0: Text size (Settings → Text size). Large is the default; printouts are not changed. */
+@media screen{
+html.tx-l body{font-size:21px!important}
+html.tx-l header h1{font-size:23px!important}
+html.tx-l header .sub{font-size:17px!important}
+html.tx-l nav button{font-size:20px!important}
+html.tx-l .card h3{font-size:17px!important}
+html.tx-l .big{font-size:36px!important}
+html.tx-l .card .big[style]{font-size:29px!important}
+html.tx-l .muted{font-size:17px!important}
+html.tx-l .badge{font-size:17px!important}
+html.tx-l .month h4{font-size:22px!important}
+html.tx-l .row{font-size:18px!important}
+html.tx-l button.btn{font-size:20px!important}
+html.tx-l button.btn.small{font-size:18px!important}
+html.tx-l label{font-size:17px!important}
+html.tx-l input,html.tx-l select,html.tx-l textarea{font-size:20px!important}
+html.tx-l table{font-size:18px!important}
+html.tx-l .rbig{font-size:44px!important}
+html.tx-l .est{font-size:14px!important}
+html.tx-l .fhelp{font-size:16px!important}
+html.tx-l .check{font-size:20px!important}
+html.tx-l .rule{font-size:18px!important}
+html.tx-l h2{font-size:23px!important}
+html.tx-l .alert{font-size:20px!important}
+html.tx-l button.btn,html.tx-l nav button{padding:13px 18px!important}
+html.tx-l input,html.tx-l select,html.tx-l textarea{padding:13px!important}
+html.tx-l input[type=checkbox],html.tx-l input[type=radio]{width:23px;height:23px}
+html.tx-xl body{font-size:26px!important}
+html.tx-xl header h1{font-size:29px!important}
+html.tx-xl header .sub{font-size:21px!important}
+html.tx-xl nav button{font-size:24px!important}
+html.tx-xl .card h3{font-size:21px!important}
+html.tx-xl .big{font-size:45px!important}
+html.tx-xl .card .big[style]{font-size:35px!important}
+html.tx-xl .muted{font-size:21px!important}
+html.tx-xl .badge{font-size:21px!important}
+html.tx-xl .month h4{font-size:27px!important}
+html.tx-xl .row{font-size:22px!important}
+html.tx-xl button.btn{font-size:24px!important}
+html.tx-xl button.btn.small{font-size:22px!important}
+html.tx-xl label{font-size:21px!important}
+html.tx-xl input,html.tx-xl select,html.tx-xl textarea{font-size:24px!important}
+html.tx-xl table{font-size:22px!important}
+html.tx-xl .rbig{font-size:54px!important}
+html.tx-xl .est{font-size:18px!important}
+html.tx-xl .fhelp{font-size:19px!important}
+html.tx-xl .check{font-size:24px!important}
+html.tx-xl .rule{font-size:22px!important}
+html.tx-xl h2{font-size:29px!important}
+html.tx-xl .alert{font-size:24px!important}
+html.tx-xl button.btn,html.tx-xl nav button{padding:16px 22px!important}
+html.tx-xl input,html.tx-xl select,html.tx-xl textarea{padding:16px!important}
+html.tx-xl input[type=checkbox],html.tx-xl input[type=radio]{width:29px;height:29px}
+}
 </style>
 </head>
 <body>
@@ -249,6 +305,7 @@ h2{font-size:18px;margin:4px 0 12px}
 <!-- SETTINGS -->
 <section id="set" class="tab">
   <h2>Settings</h2>
+  <div class="card" style="margin-bottom:12px"><h3>🔎 Text size</h3><label for="sTextSize">How big the words and buttons are on this screen</label><select id="sTextSize"><option value="l">Large (recommended)</option><option value="xl">Extra large</option><option value="n">Normal (small)</option></select><div class="fhelp">Saved by itself as soon as you choose. Printouts do not change.</div></div>
   <p class="muted">Everything here saves automatically on this device.</p>
   <div class="grid">
     <div class="card">
@@ -426,6 +483,10 @@ if(!Array.isArray(S.payMethods)) S.payMethods=DEFAULTS.payMethods.slice();
   if(m&&(!S.trackStart||S.trackStart>m)) S.trackStart=m;
   S.moveInFix143=true; try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} })();
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){ alert("Could not save on this device: "+e.message); } }
+/* 1.8.0: Text size — Large unless changed; saved with the other settings */
+function applyTextSize(){ const v=S.textSize||"l"; document.documentElement.classList.toggle("tx-l",v==="l"); document.documentElement.classList.toggle("tx-xl",v==="xl"); const el=document.getElementById("sTextSize"); if(el) el.value=v; }
+document.addEventListener("DOMContentLoaded",function(){ applyTextSize(); const el=document.getElementById("sTextSize"); if(el) el.addEventListener("change",function(){ S.textSize=el.value; save(); applyTextSize(); }); });
+try{ applyTextSize(); }catch(e){}
 
 /* ---------- date helpers (local time) ---------- */
 const $=id=>document.getElementById(id);
