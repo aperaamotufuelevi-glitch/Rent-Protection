@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="version" content="1.9.0">
+<meta name="version" content="2.0.0">
 <title>Rent Payment Protection & Monthly Financial Reminder System</title>
 <style>
 :root{--bg:#0f172a;--panel:#1e293b;--panel2:#273449;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;--blue:#3b82f6;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--purple:#a855f7;--gray:#64748b}
@@ -1194,6 +1194,551 @@ function renderAll(){ renderDash(); renderCal(); renderHist(); renderSubs(); ren
 renderAll(); checkNotify();
 setInterval(()=>{ checkNotify(); if(!document.querySelector(".modal.open")&&document.activeElement.tagName!=="INPUT"&&document.activeElement.tagName!=="SELECT") renderDash(); },60000);
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ renderDash(); checkNotify(); } });
+
+/* ===== 2.0.0 block starts ===== */
+
+/* ====================================================================================================
+   2.0.0: 🎬 VIDEO TUTORIALS and ♿ ACCESSIBILITY — one separate block; the code above is not rewritten.
+   Tutorials play on the real screen: a moving pointer, a highlight ring, typing and choosing shown, captions,
+   optional spoken narration, Play / Pause, Back / Forward, Replay, speed, volume, mute, full screen and a
+   written transcript. While a tutorial plays, nothing is saved: the tool's save() is paused and the data is
+   put back exactly as it was when the tutorial closes. Library: header button "🎬 Video Tutorials".
+   Every box and button has its own 🎬 button (can be hidden in Settings). Coverage checklist in the library.
+   ==================================================================================================== */
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const TAB={dash:"Dashboard",cal:"12-Month Calendar",hist:"Payment History",ledger:"SHA Ledger",subs:"Subscriptions & Bills",rem:"Reminders",set:"Settings"};
+const OPEN={pay:"Record Payment form",sub:"Subscription form",subedit:"Subscription form",bill:"Bill form"};
+const T=[];   // all tutorials
+const NEW_IN="2.0.0";
+function ymd(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function tok(v){ if(typeof v!=="string") return v; const t=new Date(); return v.replace("{today}",ymd(t)).replace("{thisMonth}",ymd(t).slice(0,7)); }
+
+/* ---------- 1. FIELD tutorials: what it is, where, what it does, required, what to enter, format, example, completion, result, mistakes ---------- */
+function F(id,o){ // o: tab|open, name, req, why, what, fmt, ex, mis, res, kind(type|pick|tick|date)
+  const where=o.open?("in the "+OPEN[o.open]+", which opens "+(o.open==="pay"?"when you tap Record / Update This Month's Payment on the Dashboard":o.open==="bill"?"when you tap Record next to a bill in This month's bills":"when you tap ➕ Add Subscription")+".")
+    :("on the "+TAB[o.tab]+" tab"+(o.sec?", in the "+o.sec+" section":"")+".");
+  const st=[];
+  if(o.pre) st.push(...o.pre); else if(o.open) st.push({open:o.open}); else st.push({go:o.tab});
+  st.push({at:"#"+id,say:"This is the "+o.name+" "+(o.kind==="tick"?"check box":o.kind==="pick"?"choice list":"box")+". You find it "+where});
+  st.push({at:"#"+id,say:"What it does: "+o.why});
+  st.push({at:"#"+id,say:(o.req?"Required. ":"Optional — you can leave it empty. ")+"What to enter: "+o.what+(o.fmt?" Format: "+o.fmt:"")});
+  st.push({at:"#"+id,do:o.kind||"type",v:o.ex,say:"Example: "+(o.kind==="tick"?"tick the box.":o.exSay||String(o.ex).replace(/\n/g," / ")+".")});
+  st.push({at:"#"+id,say:"Avoid this mistake: "+o.mis});
+  st.push({at:o.resAt||"#"+id,say:"When you finish: "+o.res});
+  T.push({id:"f-"+id,cat:o.open?OPEN[o.open]:TAB[o.tab],kind:"Box or choice",title:o.name,desc:o.why,target:id,steps:st});
+}
+/* ---------- 2. BUTTON tutorials ---------- */
+function B(id,o){ // o: tab|open, name, why, how, res, mis, sel, click(bool)
+  const st=[];
+  if(o.pre) st.push(...o.pre); else if(o.open) st.push({open:o.open}); else st.push({go:o.tab});
+  const sel=o.sel||"#"+id;
+  st.push({at:sel,say:"This is the "+o.name+" button. You find it "+(o.where||("on the "+(o.open?OPEN[o.open]:TAB[o.tab]+" tab")))+"."});
+  st.push({at:sel,say:"What it does: "+o.why});
+  st.push({at:sel,do:o.click?"click":null,say:"How to use it: "+o.how});
+  if(o.mis) st.push({at:o.after||sel,say:"Avoid this mistake: "+o.mis});
+  st.push({at:o.after||sel,say:"What happens: "+o.res});
+  T.push({id:"b-"+id,cat:o.open?OPEN[o.open]:TAB[o.tab],kind:"Button",title:o.name,desc:o.why,target:o.target===undefined?id:o.target,cover:o.cover,steps:st});
+}
+/* ---------- 3. SECTION tutorials (parts of a screen) ---------- */
+function P(key,o){ const st=[{go:o.tab}]; o.parts.forEach(p=>st.push({at:p[0],say:p[1]}));
+  T.push({id:"s-"+key,cat:TAB[o.tab],kind:"Screen part",title:o.title,desc:o.desc,target:o.target,steps:st,tabTut:o.tabTut}); }
+/* ---------- 4. WALKTHROUGHS (start to finish) ---------- */
+function W(key,o){ T.push({id:"w-"+key,cat:"Start here — full walkthroughs",kind:"Full walkthrough",title:o.title,desc:o.desc,steps:o.steps}); }
+
+/* ===== Settings ===== */
+const SET="set";
+F("sTextSize",{tab:SET,sec:"Text size",name:"Text size",kind:"pick",req:false,why:"makes all the words and buttons bigger or smaller on this screen.",what:"choose how big you want everything to look.",fmt:"pick one from the list.",ex:"Extra large",mis:"choosing Normal (small) if small text is hard for you to read. Large is the best start.",res:"it is saved right away and the whole screen changes size. Printouts do not change."});
+F("sHighContrast",{tab:SET,sec:"Text size",name:"High contrast",kind:"pick",req:false,why:"shows white words on a pure black background with bright yellow outlines, which is easier to see for many people.",what:"choose On or Off.",fmt:"pick one from the list.",ex:"On",mis:"turning it on and forgetting where it is — it is in Settings, at the top.",res:"it is saved right away and the colors change."});
+F("sTvButtons",{tab:SET,sec:"Text size",name:"Show 🎬 tutorial buttons",kind:"pick",req:false,why:"shows or hides the small 🎬 buttons next to every box and button.",what:"choose Show or Hide.",fmt:"pick one from the list.",ex:"Show",mis:"hiding them when a friend still needs help. The 🎬 Video Tutorials button at the top always stays.",res:"it is saved right away."});
+F("sName",{tab:SET,sec:"Account",name:"Tenant full name",req:true,why:"shows your name at the top of the screen and on printed statements.",what:"your full legal name, exactly as it is written on your SHA lease.",fmt:"first name, middle name or initial, last name, each starting with a capital letter.",ex:"Maria L. Santos",mis:"typing a nickname or only your first name.",res:"it is saved by itself when you leave the box, and your name shows at the top."});
+F("sLandlord",{tab:SET,sec:"Account",name:"Landlord / housing authority",req:true,why:"names who you pay rent to. It prints on your statements.",what:"the full name of your landlord or housing authority.",fmt:"words, spelled out in full.",ex:"Seattle Housing Authority",mis:"typing only letters like SHA — the full name is clearer on paper.",res:"it is saved by itself and shows on printed statements."});
+F("sAcct",{tab:SET,sec:"Account",name:"SHA account / household ID",req:false,why:"prints your SHA tenant code or household ID on statements, so SHA can find your account.",what:"the ID number from an SHA letter or the SHA portal.",fmt:"letters and numbers exactly as SHA prints them.",ex:"T0123456",mis:"typing a bank account, card number or Social Security number here. Never do that.",res:"it is saved by itself and prints on statements."});
+F("sAddr",{tab:SET,sec:"Account",name:"Home address",req:false,why:"prints your rental address under your name on statements.",what:"your street address, then your city, state and ZIP code.",fmt:"street and apartment on the first line; press Enter; city, state, ZIP on the second line.",ex:"1234 Example St Apt 5\nSeattle, WA 98101",exSay:"1234 Example St Apt 5, then a new line, Seattle, WA 98101",mis:"putting everything on one line, or leaving out the apartment number.",res:"it is saved by itself and prints on statements."});
+F("sMethod",{tab:SET,sec:"Account",name:"Usual payment method",kind:"pick",req:false,why:"is picked for you every time you record a rent payment.",what:"how you normally pay your rent.",fmt:"pick one from the list.",ex:"Money order",mis:"none — you can still change it on each payment.",res:"it is saved right away and used as the first choice in the Record Payment form."});
+F("sPayMethods",{tab:SET,sec:"Account",name:"My cards & accounts",req:false,why:"gives the list of cards and accounts you can choose in the Subscription form.",what:"each card or account on its own line, with only the last 4 numbers.",fmt:"name, the word ending, then 4 numbers. One per line.",ex:"Cash App Card ending 1234\nBank account ending 5678",exSay:"Cash App Card ending 1234, then on a new line, Bank account ending 5678",mis:"typing a whole card number, a PIN or a security code. Only ever the last 4 numbers.",res:"it is saved when you leave the box, and the cards appear in the Paid with list."});
+F("sIncomeDay",{tab:SET,sec:"Income & Due Dates",name:"Monthly income arrives on day",kind:"pick",req:true,why:"tells the tool the day your money arrives. Reminder 2 goes off on this day.",what:"the day of the month your income is paid to you.",fmt:"pick a day number.",ex:"Day 1",mis:"choosing the rent due day when your money comes on a different day.",res:"it is saved right away and the reminders move to that day."});
+F("sDueDay",{tab:SET,sec:"Income & Due Dates",name:"Rent due on day",kind:"pick",req:true,why:"is the day SHA says rent is due. It decides when a month turns Pending or Overdue.",what:"the due day printed on your lease or SHA letter.",fmt:"pick a day number.",ex:"Day 1",mis:"choosing the last day of the grace period instead of the real due day.",res:"it is saved right away and the calendar uses it."});
+F("sTravel",{tab:SET,sec:"Income & Due Dates",name:"My payment takes about this long to reach SHA",kind:"pick",req:true,why:"makes the tool tell you to send rent early enough so it arrives on time.",what:"how long your payment takes to get to SHA.",fmt:"pick one from the list.",ex:"About 2 weeks",mis:"picking Same day when you mail a money order — it would arrive late.",res:"it is saved right away. The Dashboard then shows a Send on date for each month."});
+F("sIncomeAmt",{tab:SET,sec:"Income & Due Dates",name:"Monthly income amount",req:false,why:"shows how much money is left after rent and bills.",what:"your total income for one month.",fmt:"numbers only, with a dot before the cents. No dollar sign, no commas.",ex:"943.00",mis:"typing a dollar sign or letters, like $943 a month.",res:"it is saved when you leave the box. It stays only in this tool."});
+F("sGrace",{tab:SET,sec:"Income & Due Dates",name:"Mark rent as overdue when still unpaid after",kind:"pick",req:true,why:"decides how many days after the due date an unpaid month turns red as Overdue.",what:"the number of days you want to wait.",fmt:"pick one from the list.",ex:"5 days",mis:"leaving it longer than SHA allows — your rent could be late before the tool warns you.",res:"it is saved right away and the statuses update."});
+F("sMoveIn",{tab:SET,sec:"Income & Due Dates",name:"Move-in date",kind:"date",req:true,why:"starts your history on the day you moved in.",what:"the day you moved into your apartment.",fmt:"a date: month, day, year. Use the calendar picker.",ex:"2026-03-02",exSay:"March 2, 2026",mis:"typing the day you signed papers if you moved in on a different day.",res:"it is saved when you leave the box, and your history starts from that month."});
+F("sTrackStart",{tab:SET,sec:"Income & Due Dates",name:"Start tracking from month",kind:"pick",req:false,why:"chooses the first month the tool tracks.",what:"the first month you want to see.",fmt:"pick a month from the list.",ex:"March 2026",mis:"picking a later month — earlier months then disappear from your history.",res:"it is saved right away."});
+F("rateMonth",{tab:SET,sec:"Rent Amount Schedule",name:"New rent amount — effective month",kind:"pick",req:true,why:"is the first month a new rent amount starts.",what:"the month printed on your SHA letter when your rent changes.",fmt:"pick a month from the list.",ex:"March 2027",mis:"picking the month the letter arrived instead of the month the new rent starts.",res:"nothing changes until you also type the amount and tap Add Rent Amount."});
+F("rateAmt",{tab:SET,sec:"Rent Amount Schedule",name:"New rent amount ($)",req:true,why:"is the new monthly rent you pay from that month on.",what:"your part of the rent, from the SHA letter.",fmt:"numbers only, with a dot before the cents.",ex:"75.00",mis:"typing the Unit Rent (market rent). That is not what you pay.",res:"tap Add Rent Amount to save it."});
+B("rateAdd",{tab:SET,name:"Add Rent Amount",why:"adds the new rent amount to your Rent Amount Schedule.",how:"first pick the month and type the amount above it, then tap Add Rent Amount.",mis:"tapping it before typing an amount.",res:"a new line shows in the schedule, and every month from then on uses the new amount."});
+B("rateDel",{tab:SET,name:"✕ Remove rent amount",sel:"#rateList [data-del]",where:"on the Settings tab, at the end of each line in the Rent Amount Schedule",why:"removes one rent amount from the schedule.",how:"tap the ✕ at the end of the line you want to remove. The tool asks you first.",mis:"removing the only amount — the tool keeps at least one.",res:"the line is removed and the months go back to the earlier amount.",target:null,cover:"[data-del]"});
+F("sLeaseDate",{tab:SET,sec:"SHA Lease Amendment",name:"Letter date",kind:"date",req:false,why:"records the date on your SHA lease amendment letter.",what:"the date printed at the top of the letter.",fmt:"a date: month, day, year.",ex:"2026-11-01",exSay:"November 1, 2026",mis:"typing the day you received it instead of the date printed on it.",res:"it is saved when you leave the box and prints on statements."});
+F("sLeaseReason",{tab:SET,sec:"SHA Lease Amendment",name:"Reason for change",kind:"pick",req:false,why:"records why SHA changed your rent.",what:"the reason written on the letter.",fmt:"pick one from the list.",ex:"Reexamination",mis:"none — choose Reexamination for the yearly review.",res:"it is saved right away."});
+F("sLeaseEff",{tab:SET,sec:"SHA Lease Amendment",name:"New tenant payment starts",kind:"date",req:false,why:"is the day the new rent starts. A notice shows until then.",what:"the start date from the letter.",fmt:"a date: month, day, year.",ex:"2027-03-01",exSay:"March 1, 2027",mis:"typing the letter date here.",res:"it is saved when you leave the box."});
+F("sLeaseFrom",{tab:SET,sec:"SHA Lease Amendment",name:"Tenant payment — from ($)",req:false,why:"records your old monthly rent from the letter.",what:"the old Resident Obligation amount.",fmt:"numbers only, with a dot before the cents.",ex:"73.00",mis:"typing the new amount here.",res:"it is saved when you leave the box."});
+F("sLeaseTo",{tab:SET,sec:"SHA Lease Amendment",name:"Tenant payment — to ($)",req:false,why:"records your new monthly rent from the letter.",what:"the new Resident Obligation amount.",fmt:"numbers only, with a dot before the cents.",ex:"75.00",mis:"typing the Unit Rent here.",res:"it is saved when you leave the box, and the rent schedule can use it."});
+F("sUnitRent",{tab:SET,sec:"SHA Lease Amendment",name:"Unit Rent — market rent of the unit ($)",req:false,why:"records the full market rent listed on the letter. This is not what you pay.",what:"the Unit Rent number from the letter.",fmt:"numbers only, with a dot before the cents.",ex:"1450.00",mis:"thinking this is your rent. Your rent is the Tenant payment above.",res:"it is saved when you leave the box, for your records only."});
+F("sNextReexam",{tab:SET,sec:"SHA Lease Amendment",name:"Next reexamination effective",kind:"date",req:false,why:"reminds you on the Dashboard when your next yearly review is coming.",what:"the date of your next review, from the letter.",fmt:"a date: month, day, year.",ex:"2028-03-01",exSay:"March 1, 2028",mis:"leaving it empty — then no reminder shows.",res:"a reminder shows on the Dashboard 120 days before."});
+F("sMgrName",{tab:SET,sec:"SHA Lease Amendment",name:"Property manager",req:false,why:"prints your property manager's name on statements.",what:"the manager's name from the letter.",fmt:"first and last name.",ex:"Alex Rivera",mis:"typing the office name here — that goes in the next box.",res:"it is saved when you leave the box."});
+F("sMgrOffice",{tab:SET,sec:"SHA Lease Amendment",name:"Property / office",req:false,why:"prints your building or SHA office name on statements.",what:"the office or building name from the letter.",fmt:"words.",ex:"Example Apartments Office",mis:"typing the street address here.",res:"it is saved when you leave the box."});
+F("sMgrPhone",{tab:SET,sec:"SHA Lease Amendment",name:"Office phone",req:false,why:"keeps the office phone number handy so you can call about your rent.",what:"the office phone number from the letter.",fmt:"area code, then the number, like (206) 555-0100.",ex:"(206) 555-0100",mis:"leaving out the area code.",res:"it is saved when you leave the box."});
+F("sT1",{tab:SET,sec:"Reminder Times",name:"Reminder 1 time (day before)",kind:"pick",req:true,why:"sets the time of the reminder on the last day of each month.",what:"a time you are usually awake and have your phone.",fmt:"pick a time from the list.",ex:"6:00 PM",mis:"choosing a time you are asleep.",res:"it is saved right away and the reminder calendar uses it."});
+F("sT2",{tab:SET,sec:"Reminder Times",name:"Reminder 2 time (payday)",kind:"pick",req:true,why:"sets the time of the reminder on your income and rent day.",what:"a time soon after your money arrives.",fmt:"pick a time from the list.",ex:"9:00 AM",mis:"choosing a time before your money arrives.",res:"it is saved right away."});
+F("sT3",{tab:SET,sec:"Reminder Times",name:"Reminder 3 time (verification)",kind:"pick",req:true,why:"sets the time of the reminder on the 2nd, to check SHA posted your payment.",what:"a time you can look at the SHA portal.",fmt:"pick a time from the list.",ex:"10:00 AM",mis:"skipping the check — always confirm SHA posted it.",res:"it is saved right away."});
+F("sBal",{tab:SET,sec:"SHA-Verified Balance",name:"Balance SHA shows ($)",req:false,why:"records the balance SHA shows you. The tool never guesses it.",what:"the balance from the SHA portal or statement.",fmt:"numbers only. Put a minus sign in front for a credit (you are ahead).",ex:"-146.00",mis:"forgetting the minus sign for a credit — it would look like you owe money.",res:"it is saved when you leave the box and shows on the Dashboard."});
+F("sBalDate",{tab:SET,sec:"SHA-Verified Balance",name:"Date you checked it",kind:"date",req:false,why:"shows how current the balance is.",what:"the day you looked at that balance.",fmt:"a date: month, day, year.",ex:"{today}",exSay:"today's date",mis:"leaving an old date after you check again.",res:"it is saved when you leave the box."});
+F("sBalSrc",{tab:SET,sec:"SHA-Verified Balance",name:"Where you checked",kind:"pick",req:false,why:"records where you saw the balance.",what:"the place you checked.",fmt:"pick one from the list.",ex:"SHA online portal",mis:"none.",res:"it is saved right away."});
+F("sCreditSrc",{tab:SET,sec:"SHA-Verified Balance",name:"Where your SHA credit came from",kind:"pick",req:false,why:"names who paid the money that gave you a credit, so the Dashboard says it clearly.",what:"the source of the credit.",fmt:"pick one from the list.",ex:"Salvation Army voucher",mis:"choosing My own payments when a voucher paid it.",res:"it is saved right away and the Dashboard uses that name."});
+B("expBtn",{tab:SET,name:"Download Backup",why:"saves a copy of everything in this tool as one file (JSON — JavaScript Object Notation) on your device.",how:"tap it, then keep the file somewhere safe, like your email or a USB drive. The tutorial only points at it.",mis:"never making a backup. Make one each month.",res:"a backup file downloads to your device."});
+B("impBtn",{tab:SET,name:"Restore Backup / Load SHA Ledger File",why:"brings back your data from a backup file, or loads an SHA ledger file.",how:"tap it and choose the file. The tool asks before it replaces anything. The tutorial only points at it.",mis:"restoring an old backup by mistake — it replaces the data on this device.",res:"your data is replaced with the backup and the screens update.",cover:"#impFile"});
+
+/* ===== SHA Ledger ===== */
+const LG="ledger";
+F("lgDate",{tab:LG,sec:"Add a line from your SHA portal",name:"Date",kind:"date",req:true,why:"is the date of one line on your SHA portal ledger.",what:"the date shown on that SHA line.",fmt:"a date: month, day, year.",ex:"{today}",exSay:"today's date",mis:"typing the day you copied it instead of the date SHA shows.",res:"nothing is added until you tap Add Line."});
+F("lgDesc",{tab:LG,sec:"Add a line from your SHA portal",name:"Payments and Charges",kind:"pick",req:true,why:"says what kind of SHA line it is.",what:"the type that matches the SHA line: Tenant Rent for the monthly charge, Payment for money you paid.",fmt:"pick one from the list.",ex:"Tenant Rent",mis:"choosing Payment for a rent charge.",res:"nothing is added until you tap Add Line."});
+F("lgCharge",{tab:LG,sec:"Add a line from your SHA portal",name:"Charge ($)",req:true,why:"is the Charge column from the SHA portal.",what:"the charge amount. Leave 0 if the line is a payment.",fmt:"numbers only. A credit gets a minus sign, like -71.00.",ex:"73.00",mis:"typing the charge in the Payment box.",res:"nothing is added until you tap Add Line."});
+F("lgPay",{tab:LG,sec:"Add a line from your SHA portal",name:"Payment ($)",req:true,why:"is the Payment column from the SHA portal.",what:"the payment amount. Leave 0 if the line is a charge.",fmt:"numbers only, with a dot before the cents.",ex:"0",mis:"typing a payment in the Charge box.",res:"nothing is added until you tap Add Line."});
+B("lgAdd",{tab:LG,name:"Add Line",why:"adds the line you typed to your SHA Ledger.",how:"fill in the Date, type, Charge and Payment above it, then tap Add Line.",click:true,pre:[{go:LG},{at:"#lgDate",do:"date",v:"{today}",say:"First, fill in the date."},{at:"#lgDesc",do:"pick",v:"Tenant Rent",say:"Choose the type."},{at:"#lgCharge",do:"type",v:"73.00",say:"Type the charge."}],mis:"adding the same SHA line twice. Each SHA line only once.",after:"#ledgerTable",res:"the line shows in the ledger table, and the balance updates."});
+B("lgDel",{tab:LG,name:"✕ Remove ledger line",sel:"#ledgerTable [data-ldel]",where:"on the SHA Ledger tab, at the end of each line in the ledger table",why:"removes one line you added by mistake.",how:"tap the ✕ at the end of that line.",mis:"removing a real SHA line — copy SHA exactly.",res:"the line is removed and the balance updates.",target:null,cover:"[data-ldel]"});
+F("lgCheck",{tab:LG,sec:"Check against SHA",name:"Balance SHA shows now ($)",req:true,why:"lets you compare your ledger with the balance SHA shows.",what:"the balance at the top of your SHA portal.",fmt:"numbers only. Minus sign means credit.",ex:"-146.00",mis:"forgetting the minus sign for a credit.",res:"tap Check to compare."});
+B("lgCheckBtn",{tab:LG,name:"Check",why:"compares your ledger with the balance SHA shows.",how:"type the SHA balance in the box next to it, then tap Check.",click:true,pre:[{go:LG},{at:"#lgCheck",do:"type",v:"-146.00",say:"First type the balance SHA shows."}],after:"#lgCheckOut",res:"a message says if your ledger matches SHA, or how much it is off."});
+
+/* ===== Record Payment form ===== */
+F("pmAmt",{open:"pay",name:"Amount paid ($)",req:true,why:"records how much you paid SHA for this month.",what:"the exact amount on your money order or receipt.",fmt:"numbers only, with a dot before the cents.",ex:"73.00",mis:"typing the rent amount when you paid a different amount.",res:"nothing is saved until you tap Save."});
+F("pmDate",{open:"pay",name:"Date paid",kind:"date",req:true,why:"records the day you sent or made the payment.",what:"the date you mailed or paid it.",fmt:"a date: month, day, year.",ex:"{today}",exSay:"today's date",mis:"typing the day SHA posted it — that goes further down.",res:"nothing is saved until you tap Save."});
+F("pmMethod",{open:"pay",name:"Payment method",kind:"pick",req:true,why:"records how you paid this month.",what:"how you paid.",fmt:"pick one from the list.",ex:"Money order",mis:"none.",res:"nothing is saved until you tap Save."});
+F("pmSubmitted",{open:"pay",name:"I submitted this payment to SHA",kind:"tick",req:false,why:"marks the payment as sent, even before SHA posts it. The month then shows Pending.",what:"tick it once you have sent the payment.",fmt:"a check box.",ex:true,mis:"not ticking it — the month then still looks unpaid.",res:"after Save, the month shows Pending until you confirm it."});
+F("pmConf",{open:"pay",name:"Confirmation / receipt number",req:false,why:"keeps your proof of payment.",what:"the money order serial number or the receipt number SHA gave you.",fmt:"letters and numbers exactly as printed.",ex:"MO 12345678901",mis:"throwing away the money order stub before writing the number here.",res:"nothing is saved until you tap Save."});
+F("pmVerified",{open:"pay",name:"I checked and SHA received and posted this payment",kind:"tick",req:false,why:"marks the month as Completed. Only tick it after you see the payment on your SHA account.",what:"tick it after checking the SHA portal.",fmt:"a check box. Ticking it also fills in today's date below.",ex:true,mis:"ticking it before SHA really shows the payment.",res:"after Save, the month turns green as Completed."});
+F("pmVerDate",{open:"pay",name:"Date you verified it was posted",kind:"date",req:false,why:"records the day you saw the payment posted.",what:"the day you checked the SHA portal.",fmt:"a date: month, day, year. Filled for you when you tick the box above.",ex:"{today}",exSay:"today's date",mis:"leaving a wrong date after the box fills it.",res:"nothing is saved until you tap Save."});
+F("pmNotes",{open:"pay",name:"Notes",req:false,why:"keeps anything you want to remember about this payment.",what:"a short note, like who you spoke to.",fmt:"any words.",ex:"Mailed at the post office on 3rd Ave.",mis:"typing card numbers or passwords in notes.",res:"nothing is saved until you tap Save."});
+B("pmSave",{open:"pay",name:"Save (Record Payment)",why:"saves the payment for this month.",how:"fill in the amount, date and method, tick what applies, then tap Save.",click:true,pre:[{open:"pay"},{at:"#pmAmt",do:"type",v:"73.00",say:"Fill in the amount."},{at:"#pmSubmitted",do:"tick",v:true,say:"Tick that you submitted it."}],after:"#alerts",mis:"tapping Cancel when you meant Save.",res:"the form closes, a Saved message shows, and the month shows Pending or Completed."});
+B("pmCancel",{open:"pay",name:"Cancel (Record Payment)",why:"closes the form without saving anything.",how:"tap Cancel, or press the Escape key.",click:true,after:"#dRecordBtn",res:"the form closes and nothing changes."});
+B("pmClear",{open:"pay",name:"Clear Record",why:"removes the payment record for this month, so the month goes back to not paid.",how:"tap it only if you recorded a payment by mistake. The tool asks first. The tutorial only points at it.",mis:"clearing a real payment.",res:"the record is removed and the month shows not paid."});
+
+/* ===== Subscription form ===== */
+F("smName",{open:"sub",name:"Name",req:true,why:"is the company or service you pay.",what:"the name of the company or service.",fmt:"words.",ex:"Example Phone Plan",mis:"leaving it empty — the form will not save without a name.",res:"nothing is saved until you tap Save."});
+F("smCat",{open:"sub",name:"Category",kind:"pick",req:false,why:"groups your bills by kind.",what:"the kind of bill.",fmt:"pick one from the list.",ex:"@1",exSay:"a category from the list",mis:"none.",res:"nothing is saved until you tap Save."});
+F("smPlan",{open:"sub",name:"Plan",req:false,why:"keeps the plan name from the company.",what:"the plan name on your receipt or billing page.",fmt:"words.",ex:"Basic",mis:"none.",res:"nothing is saved until you tap Save."});
+F("smCycle",{open:"sub",name:"How it bills",kind:"pick",req:true,why:"decides which months the bill is due.",what:"how often the company charges you.",fmt:"pick Monthly, Yearly, Pay-as-you-go or Free.",ex:"Monthly",mis:"choosing Monthly for a yearly plan — it would show every month.",res:"the boxes below change to match."});
+F("smAmt",{open:"sub",name:"Amount each time, with tax ($)",req:true,why:"is how much each charge is.",what:"the full amount with tax from your last receipt.",fmt:"numbers only, with a dot before the cents.",ex:"12.16",mis:"typing the price without tax.",res:"nothing is saved until you tap Save."});
+F("smDay",{open:"sub",name:"Bills on day of the month",kind:"pick",req:true,why:"is the day the company charges you.",what:"the day from your receipt or account page.",fmt:"pick a day number.",ex:"@5",exSay:"a day from the list",mis:"guessing the day — check your receipt.",res:"nothing is saved until you tap Save."});
+F("smMonth",{open:"sub",pre:[{open:"sub"},{at:"#smCycle",do:"pick",v:"Yearly",say:"This box only shows for yearly plans, so first choose Yearly in How it bills."}],name:"Bills in month (yearly plans)",kind:"pick",req:false,why:"is the month a yearly plan charges you. Only for yearly plans.",what:"the month of the yearly charge.",fmt:"pick a month.",ex:"@1",exSay:"a month from the list",mis:"filling it for a monthly plan — it is not used then.",res:"nothing is saved until you tap Save."});
+F("smMethod",{open:"sub",name:"Paid with",kind:"pick",req:false,why:"records which card or account pays this bill.",what:"one of your cards from Settings.",fmt:"pick one from the list.",ex:"@1",exSay:"a card from the list",mis:"none — add cards in Settings first.",res:"nothing is saved until you tap Save."});
+F("smAuto",{open:"sub",name:"Automatic payment",kind:"pick",req:true,why:"says if the company charges your card by itself.",what:"Yes if it charges by itself; No if you must pay it.",fmt:"pick Yes or No.",ex:"Yes",mis:"choosing Yes when you must pay it yourself — you could miss it.",res:"nothing is saved until you tap Save."});
+F("smStatus",{open:"sub",name:"Status",kind:"pick",req:true,why:"decides if the bill counts in your Money Plan.",what:"Active for bills you pay now.",fmt:"pick Active, Paused or Cancelled.",ex:"Active",mis:"leaving a cancelled bill Active.",res:"nothing is saved until you tap Save."});
+F("smSince",{open:"sub",name:"Track from month",kind:"pick",req:false,why:"is the first month this bill shows in your plan.",what:"the first month you started paying it.",fmt:"pick a month.",ex:"@0",exSay:"a month from the list",mis:"picking a later month — earlier months are skipped.",res:"nothing is saved until you tap Save."});
+F("smNotes",{open:"sub",name:"Notes",req:false,why:"keeps anything useful, like the account email or how to cancel.",what:"short notes.",fmt:"any words.",ex:"Cancel online in account settings.",mis:"typing passwords here.",res:"nothing is saved until you tap Save."});
+B("smSave",{open:"sub",name:"Save (Subscription)",why:"saves the subscription.",how:"fill in at least the Name, then tap Save.",click:true,pre:[{open:"sub"},{at:"#smName",do:"type",v:"Example Phone Plan",say:"Type the name."},{at:"#smAmt",do:"type",v:"25.00",say:"Type the amount."}],after:"#subTable",mis:"leaving the Name empty — a message asks for it.",res:"the form closes and the subscription shows in My subscriptions."});
+B("smCancel",{open:"sub",name:"Cancel (Subscription)",why:"closes the form without saving.",how:"tap Cancel, or press the Escape key.",click:true,after:"#subAddBtn",res:"the form closes and nothing changes."});
+B("smDel",{tab:"subs",name:"Delete (Subscription)",where:"in the Subscription form when you open an existing subscription with Edit",pre:[{open:"subedit"}],why:"deletes the subscription and its bill records.",how:"open it with Edit, then tap Delete. The tool asks first. The tutorial only points at it.",mis:"deleting instead of setting Status to Cancelled — Cancelled keeps the history.",res:"the subscription is removed."});
+
+/* ===== Bill form ===== */
+F("bpAmt",{open:"bill",name:"Amount charged ($)",req:true,why:"records how much the company really charged.",what:"the amount from the receipt or card statement.",fmt:"numbers only, with a dot before the cents.",ex:"12.16",mis:"typing the usual price when the charge was different.",res:"nothing is saved until you tap Save."});
+F("bpDate",{open:"bill",name:"Date charged",kind:"date",req:true,why:"records the day of the charge.",what:"the date on the receipt or statement.",fmt:"a date: month, day, year.",ex:"{today}",exSay:"today's date",mis:"typing the due day instead of the real charge day.",res:"nothing is saved until you tap Save."});
+F("bpConf",{open:"bill",name:"Receipt / confirmation number",req:false,why:"keeps proof of the charge.",what:"the receipt or invoice number from the email or account page.",fmt:"letters and numbers as printed.",ex:"INV-2026-1105",mis:"none.",res:"nothing is saved until you tap Save."});
+F("bpVer",{open:"bill",name:"I saw the receipt or the charge",kind:"tick",req:false,why:"marks the bill as Paid. Only tick it when you have proof.",what:"tick it after you see the receipt or the charge.",fmt:"a check box.",ex:true,mis:"ticking it without proof.",res:"after Save, the bill shows Paid."});
+B("bpSave",{open:"bill",name:"Save (Bill)",why:"saves the bill charge.",how:"fill in the amount and date, tick if you saw proof, then tap Save.",click:true,pre:[{open:"bill"},{at:"#bpAmt",do:"type",v:"25.00",say:"Fill in the amount."}],after:"#subMonthTable",res:"the form closes and the bill shows in This month's bills."});
+B("bpCancel",{open:"bill",name:"Cancel (Bill)",why:"closes the form without saving.",how:"tap Cancel, or press the Escape key.",click:true,after:"#subMonthTable",res:"the form closes and nothing changes."});
+B("bpClear",{open:"bill",name:"Clear (Bill)",why:"removes the record of this bill charge.",how:"tap it only if you recorded it by mistake. The tutorial only points at it.",res:"the bill goes back to not recorded."});
+
+/* ===== Buttons on the screens ===== */
+B("dRecordBtn",{tab:"dash",name:"Record / Update This Month's Payment",why:"opens the Record Payment form for this month.",how:"tap it after you send your rent.",click:true,after:"#pmAmt",res:"the Record Payment form opens. Fill it in and tap Save."});
+B("calNow",{tab:"cal",name:"This Month",why:"jumps the calendar back to the current month.",how:"tap it any time.",click:true,pre:[{go:"cal"},{at:"#calNext",do:"click",say:"Say you moved ahead a few months with Next."},{at:"#calNext",do:"click",say:"And again."}],after:"#calGrid",res:"the card shows this month again."});
+B("calPrev",{tab:"cal",name:"◀ Back",why:"shows the month before.",how:"tap it in the bottom-left corner. On a phone you can also swipe right on the card.",click:true,after:"#calGrid",res:"the card shows the earlier month. The middle says how many months ago."});
+B("calNext",{tab:"cal",name:"Next ▶",why:"shows the next month.",how:"tap it in the bottom-right corner. On a phone you can also swipe left on the card.",click:true,after:"#calGrid",res:"the card shows the next month. The middle says how many months ahead."});
+B("calPay",{tab:"cal",name:"Record Payment (calendar card)",sel:"#calGrid [data-pay]",where:"on the 12-Month Calendar tab, at the bottom of the month card",why:"opens the Record Payment form for the month on the card.",how:"go to the month with Back or Next, then tap it.",click:true,after:"#pmAmt",res:"the Record Payment form opens for that month.",target:null,cover:"#calGrid [data-pay]"});
+B("printBtn",{tab:"hist",name:"Print / Save as PDF",why:"prints your rent statement, or saves it as a PDF (Portable Document Format) file.",how:"tap it, then choose your printer, or Save as PDF. The tutorial only points at it.",res:"the print window opens with your statement."});
+B("histOpen",{tab:"hist",name:"Open (Payment History)",sel:"#histTable [data-pay]",where:"on the Payment History tab, at the end of each month's line",why:"opens that month's payment record.",how:"tap Open on the month you want.",click:true,after:"#pmAmt",res:"the Record Payment form opens for that month.",target:null,cover:"#histTable [data-pay]"});
+B("subAddBtn",{tab:"subs",name:"➕ Add Subscription",why:"opens an empty Subscription form to add a new bill.",how:"tap it, fill in the form, then tap Save.",click:true,after:"#smName",res:"the Subscription form opens."});
+B("subPrintBtn",{tab:"subs",name:"Print / Save as PDF (Subscriptions)",why:"prints your subscriptions and the money to set aside, or saves them as a PDF (Portable Document Format) file.",how:"tap it, then choose your printer or Save as PDF. The tutorial only points at it.",res:"the print window opens."});
+B("subEdit",{tab:"subs",name:"Edit (subscription)",sel:"#subTable [data-sedit]",where:"on the Subscriptions & Bills tab, at the end of each line in My subscriptions",pre:[{fn:"demoSub"},{go:"subs"}],why:"opens that subscription to change it.",how:"tap Edit on the line you want.",click:true,after:"#smName",res:"the Subscription form opens with that bill filled in.",target:null,cover:"[data-sedit]"});
+B("billRec",{tab:"subs",name:"Record (this month's bill)",sel:"#subMonthTable [data-bpay]",where:"on the Subscriptions & Bills tab, in This month's bills",pre:[{fn:"demoSub"},{go:"subs"}],why:"opens the Bill form to record a charge.",how:"tap Record on the bill that was charged.",click:true,after:"#bpAmt",res:"the Bill form opens.",target:null,cover:"[data-bpay]"});
+B("icsBtn",{tab:"rem",name:"Download 12-Month Reminder Calendar",why:"downloads your reminders as a calendar file (ICS — iCalendar) for your phone's calendar app, so reminders work even when this page is closed.",how:"tap it, then open the file and choose your calendar app. The tutorial only points at it.",res:"a calendar file downloads. Open it to add the reminders."});
+B("notifBtn",{tab:"rem",sel:"#notifBtn||#notifState",name:"Allow Notifications",why:"lets this page show pop-up reminders while it is open.",how:"tap it, then choose Allow when your browser asks. If the button is not shown, this browser already allowed notifications or cannot show them — the line here says which. The tutorial only points at it.",res:"the page can show reminder pop-ups."});
+
+/* ===== Screen parts ===== */
+P("dash",{tab:"dash",title:"Dashboard — the whole screen",desc:"What every part of the Dashboard tells you.",target:"dash",tabTut:"dash",parts:[["#alerts","At the top are messages about your rent. Red means act now, for example rent that must be sent today or is overdue. Every message also says it in words, not only in color."],["#rbTop","These large cards show your next payment: how much you must pay, for which month, and the date to send it."],["#rbTable","This table shows your rent month by month since you moved in: rent, what the credit paid, what you must pay, and the date to send it."],["#dUpcoming","Here are your next rent reminders, with dates and times."],["#dRecordBtn","Tap this button after you send your rent, to record the payment."]]});
+P("cal",{tab:"cal",title:"12-Month Calendar — the whole screen",desc:"One big month card at a time, with Back and Next.",target:"cal",tabTut:"cal",parts:[["#calGrid","The big card shows one month: income day, rent due, rent amount, what you must pay, the three reminder dates, payments and bills."],["#calPrev","Back, in the bottom-left corner, shows the month before."],["#calNext","Next, in the bottom-right corner, shows the next month."],["#calPos","The middle says This month, or how many months ahead or ago you are."],["#calNow","This Month, at the top, jumps back to now."]]});
+P("hist",{tab:"hist",title:"Payment History — the whole screen",desc:"Every month's payment record, and printing.",target:"hist",tabTut:"hist",parts:[["#histTable","Every month is listed with its amount, date, status and confirmation number. Tap Open to see or change one."],["#printBtn","Print / Save as PDF makes a statement you can print or keep."]]});
+P("subs",{tab:"subs",title:"Subscriptions & Bills — the whole screen",desc:"Your bills, the money to set aside, and this month's charges.",target:"subs",tabTut:"subs",parts:[["#subAlerts||#dPlan","Messages about bills show here, not on the Dashboard: charges to check, and bills that need an amount or a day."],["#dPlan","The Money Plan says how much to set aside on the 1st: rent plus the bills due that month."],["#subTable","My subscriptions lists every bill. Tap Edit to change one."],["#subMonthTable","This month's bills shows each charge. Tap Record when a charge goes through."],["#subAddBtn","Add Subscription adds a new bill."]]});
+P("ledger",{tab:"ledger",title:"SHA Ledger — the whole screen",desc:"Copy your SHA portal lines and check the balance.",target:"ledger",tabTut:"ledger",parts:[["#ledgerSummary","The summary shows the balance from the lines you copied. A minus sign means a credit."],["#ledgerTable","Every line you copied from the SHA portal is listed here."],["#lgDate","Below, add one SHA line at a time: date, type, charge and payment, then Add Line."],["#lgCheck","Then type the balance SHA shows and tap Check to see if everything matches."]]});
+P("rem",{tab:"rem",title:"Reminders — the whole screen",desc:"Your three monthly reminders and how to get them on your phone.",target:"rem",tabTut:"rem",parts:[["#icsBtn","Download the reminder calendar to get reminders on your phone, even when this page is closed."],["#notifBtn||#notifState","Allow Notifications shows pop-ups while this page is open. If the button is hidden, this line says notifications are already on or not available."],["#remTable","This table lists every reminder for the next 12 months."]]});
+P("set",{tab:"set",title:"Settings — the whole screen",desc:"Where each setting is. Each box saves by itself.",target:"set",tabTut:"set",parts:[["#sTextSize","At the top: Text size, High contrast and the 🎬 buttons."],["#sName","Account: your name, landlord, ID, address and cards."],["#sIncomeDay","Income and due dates, and how long your payment takes to reach SHA."],["#rateMonth","Rent Amount Schedule: every rent amount and when it starts."],["#sLeaseDate","SHA Lease Amendment: the details from SHA's letter."],["#sT1","Reminder times."],["#sBal","The balance SHA shows, and where your credit came from."],["#expBtn","Backup: download a copy, or restore one."]]});
+
+/* ===== Full walkthroughs ===== */
+W("start",{title:"Getting started — set up the tool",desc:"First-time setup, step by step: name, dates, rent amount.",steps:[
+ {say:"Welcome. This walkthrough sets up the tool the first time. Nothing you see here is saved — it is only a demonstration."},
+ {go:"set"},{at:"#sTextSize",do:"pick",v:"Large",say:"Step 1. At the top of Settings, choose a Text size that is easy to read."},
+ {at:"#sName",do:"type",v:"Maria L. Santos",say:"Step 2. Type your full name exactly as it is on your lease."},
+ {at:"#sLandlord",do:"type",v:"Seattle Housing Authority",say:"Step 3. Type who you pay rent to."},
+ {at:"#sIncomeDay",do:"pick",v:"Day 1",say:"Step 4. Choose the day your income arrives."},
+ {at:"#sDueDay",do:"pick",v:"Day 1",say:"Step 5. Choose the day rent is due."},
+ {at:"#sTravel",do:"pick",v:"About 2 weeks",say:"Step 6. If you mail a money order, choose about 2 weeks, so the tool tells you to send it early."},
+ {at:"#sMoveIn",do:"date",v:"2026-03-02",say:"Step 7. Pick your move-in date."},
+ {at:"#rateMonth",do:"pick",v:"March 2027",say:"Step 8. In Rent Amount Schedule, pick the month a rent amount starts…"},
+ {at:"#rateAmt",do:"type",v:"75.00",say:"…type the amount…"},
+ {at:"#rateAdd",do:"click",say:"…and tap Add Rent Amount."},
+ {at:"#rateList",say:"The new amount shows in the schedule."},
+ {go:"dash"},{at:"#rbTop",say:"Done. The Dashboard now shows what you must pay and when. Every box in Settings saves by itself."}]});
+W("pay",{title:"Record a rent payment — start to finish",desc:"From sending your money order to seeing the month Completed.",steps:[
+ {say:"This walkthrough records a rent payment. Nothing is really saved during the tutorial."},
+ {go:"dash"},{at:"#rbTop",say:"Step 1. On the Dashboard, check how much you must pay and the date to send it."},
+ {at:"#dRecordBtn",do:"click",say:"Step 2. After you send the payment, tap Record / Update This Month's Payment."},
+ {at:"#pmAmt",do:"type",v:"73.00",say:"Step 3. Type the amount you paid."},
+ {at:"#pmDate",do:"date",v:"{today}",say:"Step 4. Pick the day you sent it."},
+ {at:"#pmMethod",do:"pick",v:"Money order",say:"Step 5. Choose how you paid."},
+ {at:"#pmSubmitted",do:"tick",v:true,say:"Step 6. Tick I submitted this payment to SHA."},
+ {at:"#pmConf",do:"type",v:"MO 12345678901",say:"Step 7. Type the money order or receipt number."},
+ {at:"#pmSave",do:"click",say:"Step 8. Tap Save."},
+ {at:"#alerts",say:"The month now shows Pending — sent, but SHA has not posted it yet."},
+ {at:"#dRecordBtn",do:"click",say:"Step 9. A few days later, check the SHA portal. When you see the payment, open the form again."},
+ {at:"#pmVerified",do:"tick",v:true,say:"Step 10. Tick I checked and SHA received and posted this payment. Today's date fills in."},
+ {at:"#pmSave",do:"click",say:"Step 11. Tap Save."},
+ {go:"hist"},{at:"#histTable",say:"Step 12. On Payment History the month shows Completed. Tap Open any time to review it."}]});
+W("ledger",{title:"Copy your SHA ledger and check the balance",desc:"Add SHA portal lines and compare the balance.",steps:[
+ {say:"This walkthrough copies one line from the SHA portal and checks the balance. Nothing is saved."},
+ {go:"ledger"},{at:"#lgDate",do:"date",v:"{today}",say:"Step 1. Open your SHA portal. Pick the date of the line."},
+ {at:"#lgDesc",do:"pick",v:"Tenant Rent",say:"Step 2. Choose the type — Tenant Rent for the monthly charge."},
+ {at:"#lgCharge",do:"type",v:"73.00",say:"Step 3. Type the Charge column."},
+ {at:"#lgPay",do:"type",v:"0",say:"Step 4. Payment stays 0 for a charge."},
+ {at:"#lgAdd",do:"click",say:"Step 5. Tap Add Line."},
+ {at:"#ledgerTable",say:"The line now shows in your ledger."},
+ {at:"#lgCheck",do:"type",v:"73.00",say:"Step 6. Type the balance shown at the top of the SHA portal."},
+ {at:"#lgCheckBtn",do:"click",say:"Step 7. Tap Check."},
+ {at:"#lgCheckOut",say:"The message tells you if your ledger matches SHA."}]});
+W("subs",{title:"Add a subscription and record a bill",desc:"Add a monthly bill, then record that it was charged.",steps:[
+ {say:"This walkthrough adds a monthly bill and records a charge. Nothing is saved."},
+ {go:"subs"},{at:"#subAddBtn",do:"click",say:"Step 1. Tap Add Subscription."},
+ {at:"#smName",do:"type",v:"Example Phone Plan",say:"Step 2. Type the name."},
+ {at:"#smCycle",do:"pick",v:"Monthly",say:"Step 3. Choose how it bills."},
+ {at:"#smAmt",do:"type",v:"25.00",say:"Step 4. Type the amount with tax."},
+ {at:"#smDay",do:"pick",v:"@0",say:"Step 5. Choose the day it charges — the 1st in this example, so it shows in this month."},
+ {at:"#smAuto",do:"pick",v:"Yes",say:"Step 6. Choose Yes if it charges your card by itself."},
+ {at:"#smSave",do:"click",say:"Step 7. Tap Save."},
+ {at:"#subTable",say:"It now shows in My subscriptions."},
+ {at:"#subMonthTable [data-bpay]",do:"click",say:"Step 8. When the charge goes through, tap Record in This month's bills."},
+ {at:"#bpAmt",do:"type",v:"25.00",say:"Step 9. Type the amount charged."},
+ {at:"#bpVer",do:"tick",v:true,say:"Step 10. Tick that you saw the receipt."},
+ {at:"#bpSave",do:"click",say:"Step 11. Tap Save."},
+ {at:"#subMonthTable",say:"The bill shows as Paid."}]});
+W("cal",{title:"Use the 12-Month Calendar",desc:"Move month by month with Back and Next.",steps:[
+ {go:"cal"},{at:"#calGrid",say:"The calendar shows one big month card."},
+ {at:"#calNext",do:"click",say:"Tap Next, bottom right, to see the next month."},
+ {at:"#calNext",do:"click",say:"Again for the month after."},
+ {at:"#calPrev",do:"click",say:"Tap Back, bottom left, to go back one month."},
+ {at:"#calNow",do:"click",say:"Tap This Month at the top to come back to now."},
+ {at:"#calGrid [data-pay]",say:"The button at the bottom of the card records the payment for that month."}]});
+W("rem",{title:"Get reminders on your phone",desc:"Download the reminder calendar and allow pop-ups.",steps:[
+ {go:"rem"},{at:"#icsBtn",say:"Step 1. Tap Download 12-Month Reminder Calendar. Open the file and choose your phone's calendar app. The reminders then work even when this page is closed."},
+ {at:"#notifBtn||#notifState",say:"Step 2. Tap Allow Notifications, then Allow, for pop-ups while this page is open."},
+ {at:"#remTable",say:"Step 3. Check the list of every reminder for the next 12 months."},
+ {go:"set"},{at:"#sT1",say:"To change reminder times, go to Settings, Reminder Times. Download the calendar again after changing them."}]});
+W("lease",{title:"Enter a lease amendment letter from SHA",desc:"Copy the new rent from SHA's letter into the tool.",steps:[
+ {say:"When SHA sends a lease amendment letter, copy it here. Nothing is saved during the tutorial."},
+ {go:"set"},{at:"#sLeaseDate",do:"date",v:"2026-11-01",say:"Step 1. Pick the date printed on the letter."},
+ {at:"#sLeaseReason",do:"pick",v:"Reexamination",say:"Step 2. Choose the reason."},
+ {at:"#sLeaseEff",do:"date",v:"2027-03-01",say:"Step 3. Pick the date the new rent starts."},
+ {at:"#sLeaseFrom",do:"type",v:"73.00",say:"Step 4. Type the old tenant payment."},
+ {at:"#sLeaseTo",do:"type",v:"75.00",say:"Step 5. Type the new tenant payment."},
+ {at:"#sNextReexam",do:"date",v:"2028-03-01",say:"Step 6. Pick the next reexamination date."},
+ {at:"#rateList",say:"Step 7. Check the Rent Amount Schedule shows the new amount from the right month."}]});
+W("backup",{title:"Print statements and keep a backup",desc:"Print or save as PDF, and back up your data.",steps:[
+ {go:"hist"},{at:"#printBtn",say:"On Payment History, Print / Save as PDF (Portable Document Format) makes a rent statement."},
+ {go:"subs"},{at:"#subPrintBtn",say:"On Subscriptions & Bills, the same button prints your bills."},
+ {go:"set"},{at:"#expBtn",say:"In Settings, Download Backup saves everything as one file. Do it every month and keep the file safe."},
+ {at:"#impBtn",say:"Restore Backup brings your data back from that file, on this or a new device."}]});
+W("player",{title:"How to use the video player",desc:"Every button of the tutorial player.",steps:[
+ {at:"#tvPlay",say:"Play and Pause start and stop the tutorial. Keyboard: Space."},
+ {at:"#tvPrev",say:"Back goes to the step before. Keyboard: left arrow."},
+ {at:"#tvNext",say:"Forward skips to the next step. Keyboard: right arrow."},
+ {at:"#tvReplay",say:"Replay starts the tutorial again from the beginning."},
+ {at:"#tvSeek",say:"The progress bar shows where you are. Drag it, or use the arrow keys on it."},
+ {at:"#tvSpeed",say:"Speed makes it slower or faster."},
+ {at:"#tvMute",say:"Sound turns the spoken narration on or off. Keyboard: M. The slider next to it is the volume."},
+ {at:"#tvCC",say:"Captions shows or hides the words at the bottom. Keyboard: C."},
+ {at:"#tvTr",say:"Transcript shows every step in writing. Tap a step to jump to it. Keyboard: T."},
+ {at:"#tvFull",say:"Full screen fills the whole screen. Keyboard: F."},
+ {at:"#tvClose",say:"Close ends the tutorial. Keyboard: Escape. Your data is always put back exactly as it was."}]});
+
+/* ---------- sandbox: a tutorial never changes real data ---------- */
+const SB={on:false};
+function sbStart(){ if(SB.on) return; SB.on=true; SB.snap=JSON.stringify(S); SB.save=save; save=function(){};
+  SB.c=window.confirm; SB.a=window.alert; SB.p=window.prompt; window.confirm=()=>true; window.alert=()=>{}; window.prompt=()=>null;
+  SB.tab=(document.querySelector("nav button.active")||{}).dataset; SB.tab=SB.tab&&SB.tab.tab||"dash"; SB.y=scrollY; document.documentElement.classList.add("tv-on"); }
+function sbReset(){ try{ S=JSON.parse(SB.snap); }catch(e){} document.querySelectorAll(".modal.open").forEach(m=>m.classList.remove("open"));
+  ["lgCheckOut"].forEach(id=>{const e=$(id);if(e)e.innerHTML="";}); document.querySelectorAll("#lgDate,#lgCharge,#lgPay,#lgCheck,#rateAmt").forEach(e=>{e.value=e.defaultValue||"";});
+  try{ renderAll(); }catch(e){} try{ applyTextSize(); }catch(e){} applyA11y(); }
+function sbStop(){ if(!SB.on) return; sbReset(); save=SB.save; window.confirm=SB.c; window.alert=SB.a; window.prompt=SB.p; SB.on=false;
+  const b=document.querySelector('nav button[data-tab="'+SB.tab+'"]'); if(b) b.click(); document.documentElement.classList.remove("tv-on"); scrollTo(0,SB.y); }
+const FN={ demoSub(){ const mk=curMk(); if(!S.subs.some(sb=>sb.status==="Active"&&sb.cycle==="monthly"&&sb.amount!==""&&sb.day)){ S.subs.push({id:"tvdemo",dayConfirmed:true,name:"Example Phone Plan",cat:(S.subs[0]||{}).cat||"Other",plan:"",cycle:"monthly",amount:25,day:1,month:1,method:"",auto:"Yes",status:"Active",since:mk,notes:"Tutorial example — not saved"}); renderAll(); } } };
+function openStep(kind){ // the real buttons are tapped, so the real forms open
+  if(kind==="pay") return {go:"dash",sel:"#dRecordBtn"};
+  if(kind==="sub") return {go:"subs",sel:"#subAddBtn"};
+  if(kind==="subedit"){ FN.demoSub(); return {go:"subs",sel:"#subTable [data-sedit]"}; }
+  if(kind==="bill"){ FN.demoSub(); return {go:"subs",sel:"#subMonthTable [data-bpay]"}; } }
+
+/* ---------- player ---------- */
+const RM=matchMedia("(prefers-reduced-motion: reduce)").matches;
+const PL={t:null,i:0,playing:false,run:0,speed:1,vol:0.9,muted:false,cc:true,tr:false};
+try{ const p=JSON.parse(localStorage.getItem("rentProtection.tvPlayer")||"{}"); ["speed","vol","muted","cc"].forEach(k=>{ if(p[k]!=null) PL[k]=p[k]; }); }catch(e){}
+function plSave(){ try{ localStorage.setItem("rentProtection.tvPlayer",JSON.stringify({speed:PL.speed,vol:PL.vol,muted:PL.muted,cc:PL.cc})); }catch(e){} }
+function el(sel){ if(!sel) return null; if(sel.indexOf("||")>0){ for(const x of sel.split("||")){ const r=el(x.trim()); if(r) return r; } return null; } try{ const e=document.querySelector(sel); return e&&e.offsetParent!==null||e&&e.getClientRects().length?e:null; }catch(e){ return null; } }
+function sleep(ms,run){ return new Promise(r=>{ const end=Date.now()+ms; (function t(){ if(run!==PL.run||Date.now()>=end) return r(); setTimeout(t,Math.min(100,end-Date.now())); })(); }); }
+function speechOk(){ return "speechSynthesis" in window; }
+function say(text,run){ return new Promise(r=>{ if(PL.muted||!speechOk()||!text) return r(); try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text.replace(/[\u{1F300}-\u{1FAFF}☀-➿️]/gu,"").replace(/\(([A-Z]{2,5}) —/g,"($1,")); u.rate=Math.max(.5,Math.min(2,PL.speed)); u.volume=PL.vol; u.lang="en-US"; const lim=setTimeout(()=>r(),(text.length*90)/Math.max(.5,PL.speed)+3000); u.onend=u.onerror=()=>{clearTimeout(lim);r();}; speechSynthesis.speak(u); const chk=setInterval(()=>{ if(run!==PL.run){ clearInterval(chk); r(); } },150); u.addEventListener("end",()=>clearInterval(chk)); }catch(e){ r(); } }); }
+function stepText(s){ return s.say||(s.go?"Open the "+TAB[s.go]+" tab.":s.open?"Open the "+OPEN[s.open]+".":""); }
+function scrollToEl(e){ if(!e) return; const ph=($("tvPlayer")||{}).offsetHeight||200, room=innerHeight-ph;
+  const modal=e.closest(".modal.open"), sc=modal||document.scrollingElement; const r=e.getBoundingClientRect();
+  const hd=document.querySelector("header"), hp=hd?getComputedStyle(hd).position:"", hb=!modal&&hd&&(hp==="sticky"||hp==="fixed")?Math.max(0,hd.getBoundingClientRect().bottom):0;
+  const want=Math.max(hb+16,hb+(room-hb-r.height)/2.4);
+  const d=r.top-want; if(Math.abs(d)>4) sc.scrollBy({top:d,behavior:RM?"auto":"smooth"}); }
+function ring(e){ const R=$("tvRing"); if(!e){ R.style.display="none"; return; } const r=e.getBoundingClientRect(); R.style.display="block"; R.style.left=(r.left-6)+"px"; R.style.top=(r.top-6)+"px"; R.style.width=(r.width+12)+"px"; R.style.height=(r.height+12)+"px"; }
+function cursorTo(e,anim){ const C=$("tvCur"); if(!e){ return Promise.resolve(); } const r=e.getBoundingClientRect(); C.style.display="block"; C.style.transition=anim&&!RM?"left .7s ease, top .7s ease":"none"; C.style.left=(r.left+Math.min(r.width*0.6,r.width-8))+"px"; C.style.top=(r.top+r.height*0.55)+"px"; return new Promise(res=>setTimeout(res,anim&&!RM?750/PL.speed:0)); }
+function press(){ const C=$("tvCur"); C.classList.remove("tv-press"); void C.offsetWidth; C.classList.add("tv-press"); }
+async function act(s,e,anim,run){
+  const v=tok(s.v);
+  if(s.do==="click"){ press(); if(anim) await sleep(250/PL.speed,run); if(e) e.click(); await new Promise(r=>setTimeout(r,60)); }
+  else if(s.do==="type"&&e){ e.focus({preventScroll:true}); const str=String(v); e.value=""; if(anim&&!RM){ for(let i=0;i<str.length;i++){ if(run!==PL.run) break; e.value=str.slice(0,i+1); e.dispatchEvent(new Event("input",{bubbles:true})); await sleep(55/PL.speed,run); } } e.value=str; e.dispatchEvent(new Event("input",{bubbles:true})); e.dispatchEvent(new Event("change",{bubbles:true})); e.blur(); }
+  else if(s.do==="date"&&e){ e.value=v; e.dispatchEvent(new Event("input",{bubbles:true})); e.dispatchEvent(new Event("change",{bubbles:true})); }
+  else if(s.do==="pick"&&e){ const o=[...e.options]; let idx=-1; if(/^@\d+$/.test(v)) idx=Math.min(o.length-1,Number(v.slice(1))); else { idx=o.findIndex(x=>x.text.toLowerCase().includes(String(v).toLowerCase())); if(idx<0) idx=o.findIndex(x=>x.value===v); } if(idx<0) idx=Math.min(1,o.length-1); if(idx>=0){ e.selectedIndex=idx; e.dispatchEvent(new Event("change",{bubbles:true})); } }
+  else if(s.do==="tick"&&e){ if(e.checked!==!!v){ press(); e.checked=!!v; e.dispatchEvent(new Event("change",{bubbles:true})); } }
+}
+async function doStep(s,anim,run){
+  // tabs and forms are opened by tapping the real buttons
+  let s2=s;
+  if(s.fn){ FN[s.fn](); return; }
+  if(s.go){ const b=document.querySelector('nav button[data-tab="'+s.go+'"]'); if(!(b&&b.classList.contains("active"))){ if(anim){ await cursorTo(b,true); if(run!==PL.run) return; press(); } if(b) b.click(); } if(anim){ scrollTo({top:0,behavior:"auto"}); ring(b); } return; }
+  if(s.open){ const o=openStep(s.open); await doStep({go:o.go},anim,run); const b=el(o.sel); if(run!==PL.run) return; if(b){ scrollToEl(b); if(anim){ await sleep(300,run); await cursorTo(b,true); if(run!==PL.run) return; ring(b); press(); await sleep(200/PL.speed,run); if(run!==PL.run) return; } b.click(); } return; }
+  const e=el(typeof s2.at==="function"?s2.at():s2.at);
+  if(anim){ scrollToEl(e); await sleep(e?350:0,run); if(run!==PL.run) return; await cursorTo(e,true); if(run!==PL.run) return; ring(e); }
+  if(s2.do) await act(s2,e,anim,run);
+  if(anim&&e) ring(el(s2.at)||e);
+}
+function caption(t){ $("tvCap").textContent=t; $("tvCap").style.display=PL.cc&&t?"block":"none"; $("tvLive").textContent=t; }
+function steps(){ return PL.t.steps; }
+function ui(){ if(!PL.t) return; const n=steps().length; $("tvSeek").max=n-1; $("tvSeek").value=PL.i; $("tvSeek").setAttribute("aria-valuetext","Step "+(PL.i+1)+" of "+n);
+  $("tvPos").textContent="Step "+(PL.i+1)+" of "+n; $("tvPlay").textContent=PL.playing?"⏸ Pause":(PL.done?"▶ Play again":"▶ Play"); $("tvPlay").setAttribute("aria-label",PL.playing?"Pause":"Play");
+  $("tvMute").textContent=PL.muted?"🔇 Sound off":"🔊 Sound on"; $("tvMute").setAttribute("aria-pressed",String(!PL.muted)); $("tvCC").setAttribute("aria-pressed",String(PL.cc)); $("tvCC").textContent=PL.cc?"CC on":"CC off";
+  $("tvTr").setAttribute("aria-pressed",String(PL.tr)); $("tvTrBox").style.display=PL.tr?"block":"none";
+  $("tvTrBox").querySelectorAll("button").forEach((b,i)=>{ b.classList.toggle("now",i===PL.i); b.setAttribute("aria-current",i===PL.i?"step":"false"); });
+  const nb=$("tvTrBox").querySelector("button.now"); if(nb&&PL.tr) nb.scrollIntoView({block:"nearest"}); }
+async function runFrom(){ const run=++PL.run; PL.playing=true; PL.done=false; ui();
+  while(PL.t&&PL.i<steps().length){ const s=steps()[PL.i]; const t=stepText(s); caption(t); ui();
+    await doStep(s,true,run); if(run!==PL.run||!PL.t) return;
+    const min=Math.max(2200,t.length*58)/PL.speed; await Promise.all([sleep(min,run),say(t,run)]); if(run!==PL.run) return;
+    if(!PL.t) return; if(PL.i>=steps().length-1) break; PL.i++; }
+  PL.playing=false; PL.done=true; caption("End of the tutorial. Press Play again to watch it again, or Close."); ui(); }
+function pause(){ PL.run++; PL.playing=false; try{ speechSynthesis.cancel(); }catch(e){} ui(); }
+async function seek(n,thenPlay){ if(!PL.t) return; pause(); const run=PL.run; n=Math.max(0,Math.min(steps().length-1,n)); sbReset(); ring(null);
+  for(let i=0;i<n;i++){ if(!PL.t||run!==PL.run) return; const s=steps()[i]; if(s.go||s.open||s.fn||s.do) await doStep(s,false,run); }
+  if(!PL.t||run!==PL.run) return; PL.i=n; PL.done=false; const s=steps()[n]; caption(stepText(s));
+  if(thenPlay) return runFrom();
+  await doStep(Object.assign({},s,{do:null}),true,run); if(PL.t&&run===PL.run) ui(); }
+function openTut(id,written){
+  const t=T.find(x=>x.id===id); if(!t) return; closeLib(true); if(PL.t) closePlayer(true);
+  PL.t=t; PL.i=0; PL.done=false; sbStart(); buildPlayer(); $("tvTitle").textContent="🎬 "+t.title; $("tvDesc").textContent=cap1(t.desc)+" · "+t.cat;
+  $("tvTrBox").innerHTML='<h3>Written steps</h3><ol>'+t.steps.map((s,i)=>'<li><button type="button" data-i="'+i+'">'+esc(stepText(s))+'</button></li>').join("")+'</ol>';
+  $("tvTrBox").querySelectorAll("button").forEach(b=>b.onclick=()=>seek(Number(b.dataset.i),PL.playing));
+  if(written){ PL.tr=true; } seek(0,false); $("tvPlayer").style.display="block"; setTimeout(()=>$("tvPlay").focus(),50); }
+function closePlayer(silent){ pause(); ring(null); $("tvCur").style.display="none"; if($("tvPlayer")) $("tvPlayer").style.display="none"; try{ if(document.fullscreenElement) document.exitFullscreen(); }catch(e){} sbStop(); PL.t=null; if(!silent){ const f=PL.from; if(f&&document.contains(f)) f.focus(); } }
+function buildPlayer(){ if($("tvPlayer")) return;
+  const d=document.createElement("div"); d.id="tvPlayer"; d.setAttribute("role","region"); d.setAttribute("aria-label","Video tutorial player");
+  d.innerHTML='<div class="tvhead"><div><div id="tvTitle" class="tvtitle"></div><div id="tvDesc" class="tvdesc"></div></div><button type="button" id="tvClose" class="tvb" aria-label="Close the tutorial">✕ Close</button></div>'+
+   '<div id="tvCap" class="tvcap" aria-hidden="true"></div><div id="tvLive" class="tv-sr" aria-live="polite"></div>'+
+   '<div class="tvprog"><span id="tvPos" class="tvpos"></span><input type="range" id="tvSeek" min="0" max="0" value="0" aria-label="Tutorial progress"></div>'+
+   '<div class="tvctl"><button type="button" class="tvb" id="tvReplay" aria-label="Replay from the beginning">⏮ Replay</button><button type="button" class="tvb" id="tvPrev" aria-label="Back one step">⏪ Back</button>'+
+   '<button type="button" class="tvb tvmain" id="tvPlay">▶ Play</button><button type="button" class="tvb" id="tvNext" aria-label="Forward one step">⏩ Forward</button>'+
+   '<label class="tvsl"><span>Speed</span><select id="tvSpeed" aria-label="Playback speed">'+[0.5,0.75,1,1.25,1.5,2].map(v=>'<option value="'+v+'">'+v+'×</option>').join("")+'</select></label>'+
+   '<button type="button" class="tvb" id="tvMute" aria-pressed="true"></button><label class="tvsl"><span>Volume</span><input type="range" id="tvVol" min="0" max="1" step="0.1" aria-label="Volume"></label>'+
+   '<button type="button" class="tvb" id="tvCC" aria-pressed="true" title="Captions">CC on</button><button type="button" class="tvb" id="tvTr" aria-pressed="false">📝 Transcript</button><button type="button" class="tvb" id="tvFull" aria-label="Full screen">⛶ Full screen</button></div>'+
+   '<div id="tvTrBox" class="tvtr" style="display:none"></div>';
+  document.body.appendChild(d);
+  const cur=document.createElement("div"); cur.id="tvCur"; cur.setAttribute("aria-hidden","true"); cur.innerHTML='<svg width="34" height="40" viewBox="0 0 34 40"><path d="M3 2 L3 32 L11 25 L16 37 L22 34 L17 23 L28 23 Z" fill="#fff" stroke="#111" stroke-width="2.5" stroke-linejoin="round"/></svg>'; document.body.appendChild(cur);
+  const rg=document.createElement("div"); rg.id="tvRing"; rg.setAttribute("aria-hidden","true"); document.body.appendChild(rg);
+  $("tvPlay").onclick=()=>{ if(PL.playing) pause(); else if(PL.done) seek(0,true); else runFrom(); };
+  $("tvReplay").onclick=()=>seek(0,true); $("tvPrev").onclick=()=>seek(PL.i-1,PL.playing); $("tvNext").onclick=()=>seek(PL.i+1,PL.playing);
+  $("tvSeek").oninput=()=>seek(Number($("tvSeek").value),false);
+  $("tvSpeed").value=String(PL.speed); $("tvSpeed").onchange=()=>{ PL.speed=Number($("tvSpeed").value); plSave(); };
+  $("tvVol").value=String(PL.vol); $("tvVol").oninput=()=>{ PL.vol=Number($("tvVol").value); if(PL.vol>0&&PL.muted){ PL.muted=false; } plSave(); ui(); };
+  $("tvMute").onclick=()=>{ PL.muted=!PL.muted; if(PL.muted) try{speechSynthesis.cancel();}catch(e){} plSave(); ui(); };
+  $("tvCC").onclick=()=>{ PL.cc=!PL.cc; plSave(); caption($("tvLive").textContent); ui(); };
+  $("tvTr").onclick=()=>{ PL.tr=!PL.tr; ui(); };
+  $("tvFull").onclick=()=>{ try{ document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen(); }catch(e){} };
+  $("tvClose").onclick=()=>closePlayer(false);
+  if(!speechOk()){ $("tvMute").disabled=true; $("tvMute").title="Spoken narration is not available in this browser — the captions show every word."; }
+}
+document.addEventListener("keydown",e=>{
+  if($("tvLib")&&$("tvLib").style.display==="flex"&&e.key==="Escape"){ e.preventDefault(); closeLib(); return; }
+  if(!PL.t) return; const tg=e.target, inPl=tg&&tg.closest&&tg.closest("#tvPlayer");
+  if(e.key==="Escape"){ e.preventDefault(); closePlayer(false); return; }
+  if(tg&&/INPUT|SELECT|TEXTAREA/.test(tg.tagName)&&!(inPl&&tg.id==="tvSeek")) return;
+  const k=e.key.toLowerCase();
+  if(k===" "&&!(tg&&tg.tagName==="BUTTON")||k==="k"){ e.preventDefault(); $("tvPlay").click(); }
+  else if(k==="arrowleft"&&!(tg&&tg.id==="tvSeek")){ e.preventDefault(); $("tvPrev").click(); }
+  else if(k==="arrowright"&&!(tg&&tg.id==="tvSeek")){ e.preventDefault(); $("tvNext").click(); }
+  else if(k==="m") $("tvMute").click(); else if(k==="c") $("tvCC").click(); else if(k==="t") $("tvTr").click(); else if(k==="f") $("tvFull").click();
+},true);
+addEventListener("resize",()=>{ if(PL.t&&!PL.playing){ const s=steps()[PL.i]; const e=el(s&&s.at); if(e) ring(e); } });
+document.addEventListener("scroll",()=>{ if(PL.t){ const s=steps()[PL.i]; const e=el(s&&s.at); if(e) ring(e); } },true);
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function cap1(s){ s=String(s||""); return s.charAt(0).toUpperCase()+s.slice(1); }
+/* ---------- library ---------- */
+const CATS=["Start here — full walkthroughs","Dashboard","12-Month Calendar","Payment History","SHA Ledger","Subscriptions & Bills","Reminders","Settings","Record Payment form","Subscription form","Bill form"];
+let libQ="",libC="";
+function len(t){ const s=t.steps.reduce((a,x)=>a+Math.max(2.2,stepText(x).length*0.058)+1,0); return s<60?"about "+Math.round(s/5)*5+" seconds":"about "+Math.round(s/60)+" minute"+(Math.round(s/60)>1?"s":""); }
+function buildLib(){ if($("tvLib")) return; const d=document.createElement("div"); d.id="tvLib"; d.className="tvlib"; d.setAttribute("role","dialog"); d.setAttribute("aria-modal","true"); d.setAttribute("aria-labelledby","tvLibH");
+  d.innerHTML='<div class="tvlibbox"><div class="tvhead"><h2 id="tvLibH">🎬 Video Tutorial Library</h2><button type="button" class="tvb" id="tvLibX" aria-label="Close the library">✕ Close</button></div>'+
+   '<p class="tvdesc">Every tutorial plays on the real screen with a pointer, captions and spoken narration you can turn off. Nothing you see in a tutorial is saved. Tap 📝 Read to get the written steps instead.</p>'+
+   '<label for="tvLibQ">Search tutorials</label><input id="tvLibQ" type="search" placeholder="For example: money order, balance, reminder" autocomplete="off">'+
+   '<div class="tvchips" role="group" aria-label="Tutorial categories" id="tvLibC"></div><div id="tvLibInfo" class="tvdesc" aria-live="polite"></div><div id="tvLibL"></div>'+
+   '<details class="tvcov"><summary>✅ Coverage checklist — does every box and button have a tutorial?</summary><div id="tvCov"></div></details></div>';
+  document.body.appendChild(d);
+  $("tvLibX").onclick=()=>closeLib(); $("tvLibQ").oninput=()=>{ libQ=$("tvLibQ").value.toLowerCase().trim(); drawLib(); };
+  d.addEventListener("click",e=>{ if(e.target===d) closeLib(); });
+  d.querySelector(".tvcov").addEventListener("toggle",drawCov); }
+function drawLib(){
+  $("tvLibC").innerHTML=[["","All"],["__new","🆕 Recently added"]].concat(CATS.map(c=>[c,c])).map(c=>'<button type="button" class="tvchip" aria-pressed="'+(libC===c[0])+'" data-c="'+esc(c[0])+'">'+esc(c[1])+'</button>').join("");
+  $("tvLibC").querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{ libC=b.dataset.c; drawLib(); $("tvLibC").querySelector('[data-c="'+CSS.escape(libC)+'"]').focus(); });
+  const words=libQ.split(/\s+/).filter(Boolean);
+  const L=T.filter(t=>(libC===""||(libC==="__new"?true:t.cat===libC))&&words.every(w=>(t.title+" "+t.desc+" "+t.cat+" "+t.kind+" "+t.steps.map(stepText).join(" ")).toLowerCase().includes(w)));
+  $("tvLibInfo").textContent=L.length+" tutorial"+(L.length===1?"":"s")+(libQ?" found":"")+".";
+  const groups={}; L.forEach(t=>{(groups[t.cat]=groups[t.cat]||[]).push(t)});
+  $("tvLibL").innerHTML=CATS.filter(c=>groups[c]).map(c=>'<h3>'+esc(c)+'</h3><ul class="tvlist">'+groups[c].map(t=>'<li><div class="tvit"><button type="button" class="tvwatch" data-t="'+t.id+'"><b>▶ '+esc(t.title)+'</b><span>'+esc(cap1(t.desc))+'</span><span class="tvmeta">'+esc(t.kind)+' · '+len(t)+(libC==="__new"?' · new in version '+NEW_IN:'')+'</span></button><button type="button" class="tvb tvread" data-r="'+t.id+'" aria-label="Read the written steps: '+esc(t.title)+'">📝 Read</button></div></li>').join("")+'</ul>').join("")||'<p>No tutorial matches. Try fewer words.</p>';
+  $("tvLibL").querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{ PL.from=$("tvOpenLib"); openTut(b.dataset.t,false); });
+  $("tvLibL").querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{ PL.from=$("tvOpenLib"); openTut(b.dataset.r,true); }); }
+function drawCov(){ // every box and button in the tool, and the tutorial that covers it
+  const all=[...document.querySelectorAll("section.tab button,section.tab input,section.tab select,section.tab textarea,.modal button,.modal input,.modal select,.modal textarea")].filter(e=>!e.closest(".tvbtn")&&!e.classList.contains("tvbtn"));
+  const rows=[],seen={}; let ok=0;
+  all.forEach(e=>{ let key=e.id?"#"+e.id:null, t=null;
+    if(e.id) t=T.find(x=>x.target===e.id||(x.cover&&e.matches(x.cover)));
+    if(!t) t=T.find(x=>x.cover&&e.matches(x.cover)); if(!key) key=(T.find(x=>x.cover&&e.matches(x.cover))||{}).cover||e.textContent.trim().slice(0,30);
+    if(seen[key]) return; seen[key]=1; if(t) ok++;
+    const lab=(e.id&&document.querySelector('label[for="'+e.id+'"]')||{}).textContent||e.getAttribute("aria-label")||e.textContent||e.id;
+    rows.push('<tr><td>'+esc(String(lab).trim().slice(0,60)||key)+'</td><td>'+(t?'✅ '+esc(t.title):(e.type==="file"?'✅ Restore Backup button':'❌ none'))+'</td></tr>'); if(!t&&e.type==="file") ok++; });
+  $("tvCov").innerHTML='<p><b>'+ok+' of '+rows.length+'</b> boxes and buttons have a tutorial. Every tab and every form also has a whole-screen tutorial, and there are '+T.filter(t=>t.kind==="Full walkthrough").length+' full walkthroughs.</p><div style="max-height:40vh;overflow:auto"><table><thead><tr><th>Box or button</th><th>Tutorial</th></tr></thead><tbody>'+rows.join("")+'</tbody></table></div>'; }
+function openLib(){ buildLib(); if(PL.t) closePlayer(true); $("tvLib").style.display="flex"; drawLib(); PL.libFrom=document.activeElement; setTimeout(()=>$("tvLibQ").focus(),30); }
+function closeLib(keep){ if(!$("tvLib")) return; $("tvLib").style.display="none"; if(!keep&&PL.libFrom&&document.contains(PL.libFrom)) PL.libFrom.focus(); }
+// focus stays inside the library while it is open
+document.addEventListener("keydown",e=>{ const L=$("tvLib"); if(!L||L.style.display!=="flex"||e.key!=="Tab") return; const f=[...L.querySelectorAll("button,input,summary,select")].filter(x=>x.offsetParent!==null); if(!f.length) return;
+  if(e.shiftKey&&document.activeElement===f[0]){ e.preventDefault(); f[f.length-1].focus(); } else if(!e.shiftKey&&document.activeElement===f[f.length-1]){ e.preventDefault(); f[0].focus(); } });
+
+/* ---------- 🎬 buttons: header, each tab, each box and button ---------- */
+function tvBtn(tid,label,big){ const b=document.createElement("button"); b.type="button"; b.className="tvbtn"+(big?" tvbig":""); b.dataset.tv=tid; b.textContent=big?"🎬 "+label:"🎬"; b.setAttribute("aria-label","Video tutorial: "+label); b.title="Video tutorial: "+label; b.onclick=e=>{ e.preventDefault(); e.stopPropagation(); PL.from=b; openTut(tid,false); }; return b; }
+function placeButtons(){
+  const nav=document.querySelector("header nav"); if(nav&&!$("tvOpenLib")){ const b=document.createElement("button"); b.type="button"; b.id="tvOpenLib"; b.className="tvopen"; b.textContent="🎬 Video Tutorials"; b.onclick=e=>{ e.stopPropagation(); openLib(); }; nav.appendChild(b); }
+  T.filter(t=>t.tabTut).forEach(t=>{ const sec=$(t.tabTut); if(!sec||sec.querySelector('.tvbtn[data-tv="'+t.id+'"]')) return; const b=tvBtn(t.id,"How the "+TAB[t.tabTut]+" tab works",true); const wrap=document.createElement("div"); wrap.className="tvsec"; wrap.appendChild(b); sec.insertBefore(wrap,sec.firstChild); });
+  T.filter(t=>t.target&&t.kind!=="Screen part").forEach(t=>{ const e=$(t.target); if(!e||document.querySelector('.tvbtn[data-tv="'+t.id+'"]')) return; const b=tvBtn(t.id,t.title,false);
+    if(e.type==="checkbox"){ const sp=e.parentNode.querySelector("b"); (sp||e).insertAdjacentElement("afterend",b); return; }
+    const lab=document.querySelector('label[for="'+t.target+'"]')||(e.previousElementSibling&&e.previousElementSibling.tagName==="LABEL"?e.previousElementSibling:null);
+    if(lab&&!/^(BUTTON)$/.test(e.tagName)){ if(!lab.querySelector(".tvlab")){ const sp=document.createElement("span"); sp.className="tvlab"; sp.id=nid("lt"); while(lab.firstChild) sp.appendChild(lab.firstChild); lab.appendChild(sp); if(!e.getAttribute("aria-labelledby")) e.setAttribute("aria-labelledby",sp.id); } lab.appendChild(b); } else e.insertAdjacentElement("afterend",b); });
+}
+/* ---------- Settings: Text size card gets High contrast and 🎬 buttons choices ---------- */
+function settingsExtras(){ const ts=$("sTextSize"); if(!ts||$("sHighContrast")) return; const card=ts.closest(".card");
+  card.insertAdjacentHTML("beforeend",'<label for="sHighContrast">High contrast (white on black, yellow outlines)</label><select id="sHighContrast"><option value="off">Off</option><option value="on">On</option></select><div class="fhelp">Saved by itself as soon as you choose.</div>'+
+    '<label for="sTvButtons">Show 🎬 tutorial buttons next to every box and button</label><select id="sTvButtons"><option value="show">Show</option><option value="hide">Hide</option></select><div class="fhelp">The 🎬 Video Tutorials button at the top always stays.</div>');
+  $("sHighContrast").addEventListener("change",()=>{ S.highContrast=$("sHighContrast").value==="on"; save(); applyA11y(); toast("Saved"); });
+  $("sTvButtons").addEventListener("change",()=>{ S.tvHide=$("sTvButtons").value==="hide"; save(); applyA11y(); toast("Saved"); }); }
+function applyA11y(){ document.documentElement.classList.toggle("hc",!!S.highContrast); document.documentElement.classList.toggle("tv-hide",!!S.tvHide);
+  if($("sHighContrast")) $("sHighContrast").value=S.highContrast?"on":"off"; if($("sTvButtons")) $("sTvButtons").value=S.tvHide?"hide":"show"; }
+
+/* ---------- ♿ accessibility layer for the whole tool ---------- */
+const REQ={}; T.forEach(t=>{ if(t.kind==="Box or choice"&&t.target){ const st=t.steps.find(s=>/^Required\./.test(s.say||"")); if(st) REQ[t.target]=1; } });
+let uid=0; const nid=p=>p+"-"+(++uid);
+function a11yStatic(){
+  // every box gets its label and its help text linked, and required boxes are marked
+  document.querySelectorAll("input,select,textarea").forEach(e=>{ if(!e.id||e.closest("#tvPlayer,#tvLib")) return;
+    let lab=document.querySelector('label[for="'+e.id+'"]'); if(!lab&&e.previousElementSibling&&e.previousElementSibling.tagName==="LABEL"){ lab=e.previousElementSibling; lab.htmlFor=e.id; }
+    if(!lab&&e.type==="checkbox"){ const b=e.parentNode.querySelector("b"); if(b){ b.id=b.id||nid("lb"); e.setAttribute("aria-labelledby",b.id); } }
+    const h=e.nextElementSibling&&e.nextElementSibling.classList&&e.nextElementSibling.classList.contains("fhelp")?e.nextElementSibling:null; if(h){ h.id=h.id||nid("hp"); e.setAttribute("aria-describedby",h.id); }
+    if(REQ[e.id]){ e.setAttribute("aria-required","true"); if(lab&&!lab.querySelector(".req")) lab.insertAdjacentHTML("beforeend",' <span class="req">(required)</span>'); } });
+  // pop-up forms are dialogs: named, focus moves in, Escape closes, focus returns
+  document.querySelectorAll(".modal").forEach(m=>{ m.setAttribute("role","dialog"); m.setAttribute("aria-modal","true"); const h=m.querySelector("h2,h3"); if(h){ h.id=h.id||nid("dh"); m.setAttribute("aria-labelledby",h.id); }
+    new MutationObserver(()=>{ if(m.classList.contains("open")){ if(!m._was){ m._was=document.activeElement; if(!SB.on) setTimeout(()=>{ const f=m.querySelector("input:not([type=hidden]),select,textarea,button:not(.tvbtn)"); if(f) f.focus(); },30); } } else if(m._was){ const w=m._was; m._was=null; if(!SB.on&&w&&document.contains(w)) w.focus(); } }).observe(m,{attributes:true,attributeFilter:["class"]}); });
+  document.addEventListener("keydown",e=>{ if(e.key!=="Escape"||PL.t) return; const m=document.querySelector(".modal.open"); if(!m) return; const c=m.querySelector('[id$="Cancel"]'); if(c){ e.preventDefault(); c.click(); } });
+  // focus stays inside an open form
+  document.addEventListener("keydown",e=>{ if(e.key!=="Tab"||PL.t) return; const m=document.querySelector(".modal.open"); if(!m) return; const f=[...m.querySelectorAll("button,input,select,textarea")].filter(x=>!x.disabled&&x.offsetParent!==null); if(!f.length) return;
+    if(e.shiftKey&&document.activeElement===f[0]){ e.preventDefault(); f[f.length-1].focus(); } else if(!e.shiftKey&&document.activeElement===f[f.length-1]){ e.preventDefault(); f[0].focus(); } });
+  const t=$("toast"); if(t){ t.setAttribute("role","status"); t.setAttribute("aria-live","polite"); }
+  const nav=document.querySelector("header nav"); if(nav) nav.setAttribute("aria-label","Main sections");
+  const mark=()=>document.querySelectorAll("header nav button[data-tab]").forEach(b=>{ if(b.classList.contains("active")) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
+  mark(); document.querySelectorAll("header nav button[data-tab]").forEach(b=>b.addEventListener("click",()=>setTimeout(mark,0)));
+  document.querySelectorAll("section.tab").forEach(s=>{ s.setAttribute("aria-label",TAB[s.id]||s.id); });
+  if(!document.querySelector("main")){ document.querySelectorAll("section.tab").forEach(s=>s.setAttribute("role","region")); }
+}
+function a11yScroll(){ // scrolling boxes can be reached and scrolled with the keyboard
+  document.querySelectorAll("section.tab div, .modal, .modal div").forEach(d=>{ if(d.hasAttribute("data-tvsc")) return; const cs=getComputedStyle(d); if(!/(auto|scroll)/.test(cs.overflowX+cs.overflowY)) return;
+    if(!(d.scrollWidth>d.clientWidth+1||d.scrollHeight>d.clientHeight+1)) return; d.setAttribute("data-tvsc","1"); if(d.classList.contains("modal")) return;
+    d.tabIndex=0; d.setAttribute("role","region"); const h=d.closest(".card")&&d.closest(".card").querySelector("h3"); d.setAttribute("aria-label",(h?h.textContent.trim():"Table")+" (scrolls)"); }); }
+function a11yDynamic(){ // buttons drawn by the tool get spoken names
+  try{ a11yScroll(); }catch(e){}
+  document.querySelectorAll("[data-del]").forEach(b=>{ if(!b.getAttribute("aria-label")) b.setAttribute("aria-label","Remove this rent amount"); });
+  document.querySelectorAll("[data-ldel]").forEach(b=>{ if(!b.getAttribute("aria-label")) b.setAttribute("aria-label","Remove this ledger line"); });
+  document.querySelectorAll("[data-sedit]").forEach(b=>{ if(!b.getAttribute("aria-label")){ const r=b.closest("tr"); b.setAttribute("aria-label","Edit "+(r&&r.cells[0]?r.cells[0].textContent.trim():"subscription")); } });
+  document.querySelectorAll("[data-pay]").forEach(b=>{ if(!b.getAttribute("aria-label")){ const k=b.dataset.pay; b.setAttribute("aria-label",b.textContent.trim()+" for "+(typeof monthName==="function"?monthName(k):k)); } });
+  document.querySelectorAll("[data-bpay]").forEach(b=>{ if(!b.getAttribute("aria-label")){ const r=b.closest("tr"); b.setAttribute("aria-label",b.textContent.trim()+" "+(r&&r.cells[1]?r.cells[1].textContent.trim():"bill")); } });
+}
+const ra=renderAll; if(typeof ra==="function"){ renderAll=function(){ const r=ra.apply(this,arguments); try{ a11yDynamic(); }catch(e){} return r; }; }
+
+/* ---------- styles ---------- */
+const css=document.createElement("style"); css.textContent=`
+:focus-visible{outline:3px solid #fde047!important;outline-offset:2px}
+/* 2.0.0 color contrast (WCAG 2.2 AA, 4.5 to 1 for text) */
+button.btn:not(.gray):not(.green):not(.red){background:#1d4ed8}button.btn.green{background:#15803d}
+nav button.active{background:#1d4ed8!important;border-color:#1d4ed8!important;color:#fff!important}
+[style*="color:var(--red)"]{color:#fca5a5!important}.badge.b-pending{color:#e9d5ff!important}
+.tv-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.req{color:#fca5a5;font-weight:700}
+.tvopen{background:#f59e0b!important;color:#111!important;border-color:#f59e0b!important;font-weight:800}
+.tvbtn{background:#334155;color:#fff;border:1px solid #64748b;border-radius:8px;min-width:36px;min-height:36px;margin-left:6px;cursor:pointer;font-size:16px;line-height:1;vertical-align:middle;padding:4px 6px}
+.tvbtn.tvbig{font-size:16px;padding:8px 12px;font-weight:700;margin:0 0 10px;background:#7c3aed;border-color:#a78bfa}
+html.tv-hide .tvbtn:not(.tvbig){display:none}
+.tvsec{display:flex;justify-content:flex-end}
+#tvPlayer{position:fixed;left:0;right:0;bottom:0;z-index:100000;background:#0b1020f5;border-top:3px solid #f59e0b;color:#fff;padding:10px 12px calc(10px + env(safe-area-inset-bottom));display:none;max-height:62vh;overflow:auto;font-size:16px}
+#tvPlayer .tvhead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.tvtitle{font-weight:800;font-size:19px}.tvdesc{color:#cbd5e1;font-size:15px;margin:2px 0 6px}
+.tvcap{background:#000;color:#fff;border:2px solid #fde047;border-radius:10px;padding:10px 14px;font-size:21px;font-weight:600;line-height:1.35;margin:8px 0}
+.tvprog{display:flex;align-items:center;gap:10px}.tvprog input{flex:1;accent-color:#f59e0b;min-height:32px}.tvpos{white-space:nowrap;font-weight:700}
+.tvctl{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;align-items:center}
+.tvb{background:#1e293b;color:#fff;border:2px solid #64748b;border-radius:10px;padding:10px 14px;font-size:17px;font-weight:700;cursor:pointer;min-height:48px}
+.tvb[aria-pressed="false"]{opacity:.8}.tvb:disabled{opacity:.45}
+.tvmain{background:#15803d;border-color:#22c55e;min-width:130px}
+.tvsl{display:flex;align-items:center;gap:6px;color:#e2e8f0;font-size:15px;margin:0}.tvsl select{width:auto;font-size:16px;padding:8px}.tvsl input{width:110px}
+.tvtr{background:#111827;border:1px solid #475569;border-radius:10px;padding:8px 12px;margin-top:8px;max-height:30vh;overflow:auto}.tvtr h3{margin:4px 0;font-size:16px}
+.tvtr ol{margin:0;padding-left:22px}.tvtr button{background:none;border:0;color:#e2e8f0;text-align:left;font-size:16px;padding:6px 4px;cursor:pointer;width:100%}.tvtr button.now{background:#f59e0b33;color:#fff;font-weight:700;border-radius:6px}
+#tvCur{position:fixed;z-index:100001;pointer-events:none;display:none;width:34px;height:40px;filter:drop-shadow(0 2px 3px #000)}
+#tvCur.tv-press::after{content:"";position:absolute;left:-10px;top:-10px;width:24px;height:24px;border-radius:50%;border:3px solid #fde047;animation:tvp .5s ease-out}
+@keyframes tvp{from{transform:scale(.4);opacity:1}to{transform:scale(2.2);opacity:0}}
+#tvRing{position:fixed;z-index:99999;pointer-events:none;display:none;border:4px solid #fde047;border-radius:12px;box-shadow:0 0 0 4000px #0007,0 0 18px #fde047}
+html.tv-on body{padding-bottom:60vh}html.tv-on .modal{padding-bottom:62vh}
+html.tv-on .calbar{bottom:auto;top:0;position:sticky}
+.tvlib{position:fixed;inset:0;z-index:100002;background:#000c;display:none;align-items:flex-start;justify-content:center;padding:14px;overflow:auto}
+.tvlibbox{background:#0f172a;color:#e2e8f0;border:2px solid #f59e0b;border-radius:14px;padding:16px;width:100%;max-width:980px}
+.tvlibbox h2{margin:0;font-size:24px}.tvlibbox h3{margin:16px 0 6px;font-size:18px;color:#fde047}
+.tvlibbox label{color:#e2e8f0;font-size:16px}.tvlibbox input[type=search]{font-size:18px;padding:12px}
+.tvchips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.tvchip{background:#1e293b;color:#fff;border:2px solid #475569;border-radius:999px;padding:9px 14px;font-size:15px;font-weight:700;cursor:pointer;min-height:44px}.tvchip[aria-pressed="true"]{background:#f59e0b;color:#111;border-color:#f59e0b}
+.tvlist{list-style:none;margin:0;padding:0;display:grid;gap:8px}.tvit{display:flex;gap:8px;align-items:stretch}
+.tvwatch{flex:1;text-align:left;background:#1e293b;color:#fff;border:2px solid #334155;border-radius:12px;padding:12px;cursor:pointer;display:flex;flex-direction:column;gap:3px;font-size:16px;min-height:56px}
+.tvwatch b{font-size:17px}.tvwatch span{color:#cbd5e1}.tvmeta{font-size:13px;color:#94a3b8!important}.tvwatch:hover{border-color:#f59e0b}
+.tvcov{margin-top:16px}.tvcov summary{cursor:pointer;font-weight:700;font-size:16px;padding:8px 0}.tvcov td,.tvcov th{border-bottom:1px solid #334155;padding:6px;font-size:14px;text-align:left}
+html.hc{--bg:#000;--panel:#000;--panel2:#0a0a0a;--line:#fff;--text:#fff;--muted:#f1f5f9}
+html.hc body{background:#000;color:#fff}html.hc .card,html.hc .month,html.hc nav button,html.hc input,html.hc select,html.hc textarea,html.hc button.btn{border:2px solid #fff!important}
+html.hc button.btn{background:#000!important;color:#fde047!important}html.hc nav button.active{background:#fde047!important;color:#000!important}
+html.hc a{color:#fde047}html.hc .muted,html.hc .fhelp{color:#f1f5f9!important}
+@media (max-width:700px){header{position:static!important}
+  #tvPlayer{max-height:48vh;padding:8px 8px calc(8px + env(safe-area-inset-bottom))}#tvDesc{display:none}.tvtitle{font-size:16px}
+  .tvcap{font-size:18px;padding:8px 10px;margin:6px 0}.tvb{padding:8px 10px;font-size:15px;min-height:44px}.tvctl{gap:6px}
+  #tvPrev{order:1}#tvPlay{order:2;min-width:0}#tvNext{order:3}#tvReplay{order:4}.tvctl>*{order:5}
+  html.tv-on body{padding-bottom:50vh}}
+@media (prefers-reduced-motion: reduce){#tvCur{transition:none!important}#tvCur.tv-press::after{animation:none}}
+@media print{#tvPlayer,#tvCur,#tvRing,.tvlib,.tvbtn,.tvopen,.tvsec{display:none!important}}
+`; document.head.appendChild(css);
+
+/* ---------- start ---------- */
+function init(){ settingsExtras(); applyA11y(); a11yStatic(); placeButtons(); a11yDynamic(); }
+if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",init); else init();
+window.RP_TUTORIALS={list:T,open:openTut,library:openLib};
+})();
+
+/* ===== 2.0.0 block ends ===== */
 })();
 </script>
 </body>
